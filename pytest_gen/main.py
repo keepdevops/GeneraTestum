@@ -3,6 +3,7 @@ CLI interface for pytest code generator.
 """
 
 import click
+import sys
 from .cli_commands import (
     generate_command, analyze_command, init_config_command, info_command
 )
@@ -125,7 +126,7 @@ def assistant(interactive):
     assistant_command(interactive)
 
 
-@cli.command()
+@cli.command(name='ai-status')
 def ai_status():
     """Check AI assistant configuration and status."""
     ai_status_command()

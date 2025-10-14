@@ -12,8 +12,7 @@ class AIWidgetComponents:
     @staticmethod
     def create_chat_display():
         """Create chat display widget."""
-        from .ai_chat_widget import AIChatWidget
-        empty_chat = AIChatWidget._format_empty_chat_static()
+        empty_chat = AIWidgetComponents.format_empty_chat()
         return pn.pane.HTML(
             empty_chat,
             sizing_mode='stretch_both'

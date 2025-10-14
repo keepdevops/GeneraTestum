@@ -132,3 +132,10 @@ class FixtureGenerator:
             parameters=[],
             docstring='Fixture providing mock test data'
         )
+    
+    def get_fixture_imports(self, fixtures: List[FixtureInfo]) -> Set[str]:
+        """Get imports needed for fixtures."""
+        imports = set()
+        for fixture in fixtures:
+            imports.update(fixture.dependencies)
+        return imports

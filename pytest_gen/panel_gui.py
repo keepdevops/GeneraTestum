@@ -121,6 +121,8 @@ class TestGeneratorGUI:
     
     def serve(self, port: int = 5007, show: bool = True, **kwargs):
         """Serve the Panel application."""
+        if 'show' in kwargs:
+            kwargs.pop('show')  # Remove show from kwargs to avoid duplicate
         return self.layout.show(port=port, show=show, **kwargs)
     
     def get_layout(self):
