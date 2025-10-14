@@ -37,33 +37,7 @@ class GeneratorOperations:
     
     def analyze_source(self, source_path: str) -> dict:
         """Analyze source code and return information about what tests would be generated."""
-        if os.path.isfile(source_path):
-            code_type = self.core_ops.source_analyzer.detect_file_type(source_path)
-            
-            if code_type == "python":
-                module_info = self.core_ops.code_analyzer.analyze_file(source_path)
-                return {
-                    'file_path': source_path,
-                    'file_type': 'python',
-                    'functions': [{'name': f.name, 'parameters': len(f.parameters)} for f in module_info.functions],
-                    'classes': [{'name': c.name, 'methods': len(c.methods)} for c in module_info.classes],
-                    'endpoints': [],
-                    'dependencies': list(module_info.dependencies),
-                    'estimated_tests': len(module_info.functions) + sum(len(c.methods) for c in module_info.classes)
-                }
-            elif code_type == "api":
-                api_info = self.core_ops.api_analyzer.analyze_file(source_path)
-                return {
-                    'file_path': source_path,
-                    'file_type': 'api',
-                    'functions': [{'name': f.name, 'parameters': len(f.parameters)} for f in api_info.functions],
-                    'classes': [{'name': c.name, 'methods': len(c.methods)} for c in api_info.classes],
-                    'endpoints': [{'path': e.path, 'method': e.method} for e in api_info.endpoints],
-                    'dependencies': list(api_info.dependencies),
-                    'estimated_tests': len(api_info.endpoints)
-                }
-        
-        return {'file_path': source_path, 'file_type': 'unknown', 'functions': [], 'classes': [], 'endpoints': [], 'dependencies': [], 'estimated_tests': 0}
+        return self.core_ops.source_analyzer.analyze_source(source_path)
     
     def update_config(self, **kwargs) -> None:
         """Update generator configuration."""

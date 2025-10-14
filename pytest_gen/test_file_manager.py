@@ -55,13 +55,18 @@ class TestFileManager:
         content = self.helpers.generate_file_content(tests, unique_fixtures, all_imports)
         
         # Generate file name
-        file_name = f"test_{api_info.name}_api.py"
+        # Extract module name from file path
+        import os
+        module_name = os.path.splitext(os.path.basename(api_info.file_path))[0]
+        file_name = f"test_{module_name}_api.py"
         
         return TestFile(
             file_path=file_name,
+            tests=tests,
+            imports=all_imports,
+            fixtures=unique_fixtures,
             content=content,
-            test_count=len(tests),
-            fixtures_count=len(unique_fixtures)
+            line_count=len(content.split('\n'))
         )
     
     def _generate_single_test(self, func_info: FunctionInfo, module_info: ModuleInfo) -> GeneratedTest:
@@ -115,5 +120,7 @@ class TestFileManager:
             imports=imports,
             fixtures=fixtures,
             mocks=mocks,
-            parametrize=None
+            parametrize=None,
+            file_path=f"test_{endpoint.method.lower()}_{endpoint.path.replace('/', '_').replace('{', '').replace('}', '')}.py",
+            line_count=len(content.split('\n'))
         )

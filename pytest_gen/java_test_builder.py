@@ -23,15 +23,85 @@ class JavaTestBuilder:
             'DisplayName', 'ParameterizedTest', 'ValueSource', 'MethodSource'
         }
     
-    def generate_tests_for_file(self, java_file: JavaFile) -> List[GeneratedTest]:
-        """Generate tests for a complete Java file."""
+    def generate_tests_for_file(self, java_file: JavaFile) -> List[str]:
+        """Generate tests for a complete Java file and write to disk."""
+        import os
+        
         tests = []
         
         for java_class in java_file.classes:
             class_tests = self._generate_class_tests(java_class, java_file)
+            # Tag each test with the class name for grouping
+            for test in class_tests:
+                test.class_name = java_class.name
             tests.extend(class_tests)
         
-        return tests
+        # Group tests by class and write complete test files
+        written_files = []
+        test_groups = {}
+        
+        for test in tests:
+            # Group tests by the class being tested using the class name tag
+            class_name = getattr(test, 'class_name', 'Unknown')
+            
+            if class_name not in test_groups:
+                test_groups[class_name] = []
+            test_groups[class_name].append(test)
+        
+        # Write complete test files
+        for class_name, class_tests in test_groups.items():
+            test_filename = f"Test{class_name}.java"
+            output_path = os.path.join(self.config.output_dir, test_filename)
+            
+            # Generate complete test file content
+            file_content = self._generate_complete_test_file(class_name, class_tests)
+            
+            # Write the test file
+            with open(output_path, 'w') as f:
+                f.write(file_content)
+            
+            written_files.append(output_path)
+        
+        return written_files
+    
+    def _generate_complete_test_file(self, class_name: str, tests: List[GeneratedTest]) -> str:
+        """Generate a complete Java test file with imports and class structure."""
+        # Collect all unique imports
+        all_imports = set()
+        for test in tests:
+            all_imports.update(test.imports)
+        
+        # Add standard JUnit and AssertJ imports
+        all_imports.update(self.junit_imports)
+        all_imports.add('org.assertj.core.api.Assertions.assertThat')
+        all_imports.add('org.assertj.core.api.Assertions.assertThatCode')
+        all_imports.add(f'com.example.{class_name}')
+        
+        # Generate file content
+        content = []
+        
+        # Add package declaration
+        content.append("package com.example;")
+        content.append("")
+        
+        # Add imports
+        for import_stmt in sorted(all_imports):
+            content.append(f"import {import_stmt};")
+        content.append("")
+        
+        # Add class declaration
+        content.append(f"class Test{class_name} {{")
+        content.append("")
+        
+        # Add test methods
+        for test in tests:
+            content.append(f"    {test.content}")
+            content.append("")
+        
+        # Close class
+        content.append("}")
+        
+        return "\n".join(content)
     
     def _generate_class_tests(self, java_class: JavaClass, java_file: JavaFile) -> List[GeneratedTest]:
         """Generate tests for a Java class."""

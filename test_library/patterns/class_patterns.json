@@ -1,0 +1,55 @@
+{
+  "patterns": {
+    "class_methods": {
+      "description": "Patterns for testing class methods",
+      "test_cases": [
+        {
+          "name": "initialization",
+          "description": "Test class initialization",
+          "template": "def test_{class_name}_init():\n    \"\"\"Test {class_name} initialization.\"\"\"\n    instance = {class_name}()\n    assert instance is not None\n    {assertions}"
+        },
+        {
+          "name": "method_happy_path",
+          "description": "Test method happy path",
+          "template": "def test_{class_name}_{method_name}():\n    \"\"\"Test {class_name}.{method_name} method.\"\"\"\n    instance = {class_name}()\n    result = instance.{method_name}({args})\n    assert result == {expected_result}"
+        },
+        {
+          "name": "method_edge_cases",
+          "description": "Test method edge cases",
+          "template": "def test_{class_name}_{method_name}_edge_cases():\n    \"\"\"Test {class_name}.{method_name} edge cases.\"\"\"\n    instance = {class_name}()\n    {edge_case_tests}"
+        },
+        {
+          "name": "state_changes",
+          "description": "Test state changes",
+          "template": "def test_{class_name}_state_changes():\n    \"\"\"Test {class_name} state changes.\"\"\"\n    instance = {class_name}()\n    {initial_state_assertions}\n    instance.{method_name}({args})\n    {final_state_assertions}"
+        }
+      ],
+      "examples": {
+        "calculator": {
+          "init": {
+            "template": "def test_calculator_init():\n    \"\"\"Test Calculator initialization.\"\"\"\n    calc = Calculator()\n    assert calc is not None\n    assert calc.history == []",
+            "fixtures": ["from calculator import Calculator"]
+          },
+          "add_method": {
+            "template": "def test_calculator_add():\n    \"\"\"Test Calculator.add method.\"\"\"\n    calc = Calculator()\n    result = calc.add(2, 3)\n    assert result == 5\n    assert '2 + 3 = 5' in calc.history",
+            "fixtures": ["from calculator import Calculator"]
+          },
+          "divide_error": {
+            "template": "def test_calculator_divide_by_zero():\n    \"\"\"Test Calculator.divide with zero.\"\"\"\n    calc = Calculator()\n    with pytest.raises(ValueError, match='Cannot divide by zero'):\n        calc.divide(5, 0)",
+            "fixtures": ["from calculator import Calculator"]
+          }
+        }
+      }
+    },
+    "inheritance": {
+      "description": "Patterns for testing inheritance",
+      "test_cases": [
+        {
+          "name": "inheritance_test",
+          "description": "Test inheritance relationships",
+          "template": "def test_{child_class}_inheritance():\n    \"\"\"Test {child_class} inheritance.\"\"\"\n    instance = {child_class}()\n    assert isinstance(instance, {parent_class})\n    assert hasattr(instance, '{inherited_method}')"
+        }
+      ]
+    }
+  }
+}

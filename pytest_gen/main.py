@@ -11,6 +11,8 @@ from .ai_commands import (
     ask_command, explain_command, suggest_command, review_command, 
     assistant_command, ai_status_command
 )
+from .library_commands import library
+from .automation_commands import automation
 
 
 @click.group()
@@ -82,6 +84,23 @@ def gui(port: int, show: bool):
         click.echo(f"Error launching GUI: {e}")
         sys.exit(1)
 
+@cli.command()
+@click.option('--port', default=5007, help='Port to serve the web GUI on')
+@click.option('--host', default='localhost', help='Host to serve the web GUI on')
+@click.option('--debug', is_flag=True, help='Run in debug mode')
+def web_gui(port: int, host: str, debug: bool):
+    """Launch the web-based GUI (Flask)."""
+    try:
+        from .web_gui import launch_web_gui
+        launch_web_gui(port=port, host=host, debug=debug)
+    except ImportError as e:
+        click.echo(f"Error: Flask dependencies not installed. Please install with:")
+        click.echo("pip install flask")
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error launching web GUI: {e}")
+        sys.exit(1)
+
 
 # AI Assistant Commands
 @cli.command()
@@ -130,6 +149,13 @@ def assistant(interactive):
 def ai_status():
     """Check AI assistant configuration and status."""
     ai_status_command()
+
+
+# Add library commands as a subcommand group
+cli.add_command(library, name='library')
+
+# Add automation commands as a subcommand group
+cli.add_command(automation, name='automation')
 
 
 if __name__ == '__main__':

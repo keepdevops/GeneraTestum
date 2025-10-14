@@ -19,19 +19,47 @@ class JavaASTAnalyzer:
         self.detected_framework = None
         self.current_class = None
     
+    def visit(self, node):
+        """Generic visit method that dispatches to specific visit methods."""
+        if node is None:
+            return
+        
+        method_name = f"visit_{type(node).__name__}"
+        if hasattr(self, method_name):
+            method = getattr(self, method_name)
+            return method(node)
+        
+        # Default: visit children if they exist
+        for child in getattr(node, 'children', []):
+            self.visit(child)
+    
     def visit_compilation_unit(self, node):
         """Visit compilation unit (file level)."""
         if node.package:
-            self.package = '.'.join(node.package.name)
+            if isinstance(node.package.name, list):
+                self.package = '.'.join(node.package.name)
+            else:
+                self.package = str(node.package.name)
         
         for import_decl in node.imports:
-            import_name = '.'.join(import_decl.path)
+            if isinstance(import_decl.path, list):
+                import_name = '.'.join(import_decl.path)
+            else:
+                import_name = str(import_decl.path)
             self.imports.append(import_name)
             self.dependencies.add(import_name.split('.')[0])
         
         for type_decl in node.types:
             if hasattr(type_decl, 'name'):
                 self.visit(type_decl)
+    
+    def visit_CompilationUnit(self, node):
+        """Visit compilation unit (file level) - javalang naming."""
+        return self.visit_compilation_unit(node)
+    
+    def visit_ClassDeclaration(self, node):
+        """Visit class declaration - javalang naming."""
+        return self.visit_class_declaration(node)
     
     def visit_class_declaration(self, node):
         """Visit class declaration."""
@@ -77,7 +105,7 @@ class JavaASTAnalyzer:
             interfaces=interfaces,
             access_modifier=access_modifier,
             docstring=None,
-            line_number=getattr(node, 'position', {}).get('line', 0),
+            line_number=getattr(node.position, 'line', 0) if hasattr(node, 'position') else 0,
             is_abstract='abstract' in node.modifiers,
             is_final='final' in node.modifiers
         )
@@ -87,6 +115,10 @@ class JavaASTAnalyzer:
         
         # Detect framework
         self._detect_framework_from_class(java_class)
+    
+    def visit_MethodDeclaration(self, node):
+        """Visit method declaration - javalang naming."""
+        return self.visit_method_declaration(node)
     
     def visit_method_declaration(self, node):
         """Visit method declaration."""
@@ -118,7 +150,7 @@ class JavaASTAnalyzer:
             access_modifier=access_modifier,
             annotations=annotations,
             docstring=None,
-            line_number=getattr(node, 'position', {}).get('line', 0),
+            line_number=getattr(node.position, 'line', 0) if hasattr(node, 'position') else 0,
             is_static='static' in node.modifiers,
             is_abstract='abstract' in node.modifiers
         )
@@ -152,7 +184,11 @@ class JavaASTAnalyzer:
             return 'void'
         
         if hasattr(type_node, 'name'):
-            return '.'.join(type_node.name)
+            # Handle both simple names and qualified names
+            if isinstance(type_node.name, list):
+                return '.'.join(type_node.name)
+            else:
+                return str(type_node.name)
         elif hasattr(type_node, 'element_type'):
             return f"{self._get_type_string(type_node.element_type)}[]"
         else:

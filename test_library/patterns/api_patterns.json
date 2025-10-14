@@ -1,0 +1,56 @@
+{
+  "patterns": {
+    "rest_api_endpoints": {
+      "description": "Patterns for REST API endpoint testing",
+      "test_cases": [
+        {
+          "name": "get_endpoint",
+          "description": "Test GET endpoints",
+          "template": "def test_{endpoint_name}_get():\n    \"\"\"Test GET {endpoint_name} endpoint.\"\"\"\n    response = client.get('{endpoint_path}')\n    assert response.status_code == {expected_status}\n    assert '{expected_field}' in response.json()"
+        },
+        {
+          "name": "post_endpoint",
+          "description": "Test POST endpoints",
+          "template": "def test_{endpoint_name}_post():\n    \"\"\"Test POST {endpoint_name} endpoint.\"\"\"\n    data = {test_data}\n    response = client.post('{endpoint_path}', json=data)\n    assert response.status_code == {expected_status}\n    assert response.json()['{expected_field}'] == {expected_value}"
+        },
+        {
+          "name": "put_endpoint",
+          "description": "Test PUT endpoints",
+          "template": "def test_{endpoint_name}_put():\n    \"\"\"Test PUT {endpoint_name} endpoint.\"\"\"\n    data = {test_data}\n    response = client.put('{endpoint_path}', json=data)\n    assert response.status_code == {expected_status}\n    assert response.json()['{expected_field}'] == {expected_value}"
+        },
+        {
+          "name": "delete_endpoint",
+          "description": "Test DELETE endpoints",
+          "template": "def test_{endpoint_name}_delete():\n    \"\"\"Test DELETE {endpoint_name} endpoint.\"\"\"\n    response = client.delete('{endpoint_path}')\n    assert response.status_code == {expected_status}"
+        }
+      ],
+      "examples": {
+        "user_api": {
+          "get_user": {
+            "template": "def test_get_user():\n    \"\"\"Test GET user endpoint.\"\"\"\n    response = client.get('/users/1')\n    assert response.status_code == 200\n    assert 'id' in response.json()\n    assert 'username' in response.json()",
+            "fixtures": ["@pytest.fixture\ndef client():\n    from app import app\n    app.config['TESTING'] = True\n    with app.test_client() as client:\n        yield client"]
+          },
+          "create_user": {
+            "template": "def test_create_user():\n    \"\"\"Test POST user endpoint.\"\"\"\n    data = {'username': 'testuser', 'email': 'test@example.com'}\n    response = client.post('/users', json=data)\n    assert response.status_code == 201\n    assert response.json()['username'] == 'testuser'",
+            "fixtures": ["@pytest.fixture\ndef client():\n    from app import app\n    app.config['TESTING'] = True\n    with app.test_client() as client:\n        yield client"]
+          }
+        }
+      }
+    },
+    "error_handling": {
+      "description": "API error handling patterns",
+      "test_cases": [
+        {
+          "name": "not_found",
+          "description": "Test 404 responses",
+          "template": "def test_{endpoint_name}_not_found():\n    \"\"\"Test {endpoint_name} returns 404 for non-existent resource.\"\"\"\n    response = client.get('{endpoint_path}')\n    assert response.status_code == 404\n    assert 'error' in response.json()"
+        },
+        {
+          "name": "bad_request",
+          "description": "Test 400 responses",
+          "template": "def test_{endpoint_name}_bad_request():\n    \"\"\"Test {endpoint_name} returns 400 for invalid data.\"\"\"\n    data = {invalid_data}\n    response = client.post('{endpoint_path}', json=data)\n    assert response.status_code == 400\n    assert 'error' in response.json()"
+        }
+      ]
+    }
+  }
+}

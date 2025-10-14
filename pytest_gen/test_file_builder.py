@@ -8,6 +8,7 @@ from .config import GeneratorConfig
 from .code_analyzer import FunctionInfo, ModuleInfo
 from .test_models import TestFile, GeneratedTest
 from .template_manager import TemplateManager
+from .fixture_generator import FixtureInfo
 
 
 class TestFileBuilder:
@@ -71,9 +72,11 @@ class TestFileBuilder:
         
         return TestFile(
             file_path=file_name,
+            tests=tests,
+            imports=all_imports,
+            fixtures=unique_fixtures,
             content=content,
-            test_count=len(tests),
-            fixtures_count=len(unique_fixtures)
+            line_count=len(content.split('\n'))
         )
     
     def _estimate_test_lines(self, func_info: FunctionInfo) -> int:
@@ -89,3 +92,76 @@ class TestFileBuilder:
             param_lines += 5
         
         return base_lines + param_lines
+    
+    def _generate_single_test(self, func_info: FunctionInfo, module_info: ModuleInfo) -> GeneratedTest:
+        """Generate a single test for a function."""
+        # Generate test name
+        test_name = f"test_{func_info.name}"
+        
+        # Generate test content (simplified)
+        test_content = f'''def {test_name}():
+    """Test for {func_info.name} function."""
+    # TODO: Implement test cases
+    assert True
+'''
+        
+        # Generate imports
+        imports = set()
+        imports.add("import pytest")
+        if module_info.file_path != "<string>":
+            module_name = os.path.splitext(os.path.basename(module_info.file_path))[0]
+            imports.add(f"from {module_name} import {func_info.name}")
+        
+        return GeneratedTest(
+            name=test_name,
+            content=test_content,
+            imports=imports,
+            fixtures=[],
+            mocks=[],
+            parametrize=[],
+            file_path=test_name + ".py",
+            line_count=len(test_content.split('\n'))
+        )
+    
+    def _deduplicate_fixtures(self, fixtures: List[FixtureInfo]) -> List[FixtureInfo]:
+        """Deduplicate fixtures by name."""
+        seen = set()
+        unique_fixtures = []
+        for fixture in fixtures:
+            if fixture.name not in seen:
+                seen.add(fixture.name)
+                unique_fixtures.append(fixture)
+        return unique_fixtures
+    
+    def _generate_file_content(self, tests: List[GeneratedTest], fixtures: List[FixtureInfo], imports: Set[str]) -> str:
+        """Generate the complete test file content."""
+        content_lines = []
+        
+        # Add imports
+        for imp in sorted(imports):
+            content_lines.append(imp)
+        
+        if imports:
+            content_lines.append("")
+        
+        # Add fixtures
+        for fixture in fixtures:
+            content_lines.append(f"@pytest.fixture")
+            content_lines.append(f"def {fixture.name}():")
+            content_lines.append(fixture.content)
+            content_lines.append("")
+        
+        # Add tests
+        for test in tests:
+            content_lines.append(test.content)
+            content_lines.append("")
+        
+        return "\n".join(content_lines)
+    
+    def _generate_test_file_name(self, module_info: ModuleInfo, test_candidates: List[FunctionInfo]) -> str:
+        """Generate a test file name based on the module."""
+        if module_info.file_path == "<string>":
+            return "test_generated.py"
+        
+        module_name = os.path.splitext(os.path.basename(module_info.file_path))[0]
+        return f"test_{module_name}.py"

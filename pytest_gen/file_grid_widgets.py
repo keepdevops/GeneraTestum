@@ -47,9 +47,8 @@ class FileGridWidgets:
         # File grid
         self.grid = Tabulator(
             value=pd.DataFrame(),
-            selection='multiple',
+            selection=[],
             show_index=False,
-            width=800,
             height=400,
             pagination='remote',
             page_size=50,

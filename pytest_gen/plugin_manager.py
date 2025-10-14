@@ -118,6 +118,10 @@ class PluginManager:
         """Get list of supported languages."""
         return self.registry.get_supported_languages()
     
+    def get_plugin_for_file(self, file_path: str) -> Optional[LanguagePlugin]:
+        """Get the appropriate plugin for a file."""
+        return self.registry.get_plugin_for_file(file_path)
+    
     def get_supported_extensions(self) -> List[str]:
         """Get list of supported file extensions."""
         return self.registry.get_supported_extensions()

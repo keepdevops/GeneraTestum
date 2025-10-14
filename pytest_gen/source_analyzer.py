@@ -38,27 +38,34 @@ class SourceAnalyzer:
             'estimated_tests': 0
         }
         
-        # Try Python analysis
-        try:
-            module_info = self.code_analyzer.analyze_file(file_path)
-            analysis['file_type'] = 'python'
-            analysis['functions'] = [{'name': f.name, 'parameters': len(f.parameters)} for f in module_info.functions]
-            analysis['classes'] = [{'name': c.name, 'methods': len(c.methods)} for c in module_info.classes]
-            analysis['dependencies'] = module_info.dependencies
-            analysis['estimated_tests'] = len(module_info.functions) + sum(len(c.methods) for c in module_info.classes)
-        except Exception:
-            pass
+        # Detect file type first
+        code_type = self.detect_file_type(file_path)
         
-        # Try API analysis
-        try:
-            api_info = self.api_analyzer.analyze_file(file_path)
-            if api_info:
-                analysis['file_type'] = 'api'
-                analysis['endpoints'] = [{'name': e.name, 'method': e.method, 'path': e.path} for e in api_info.endpoints]
-                analysis['dependencies'] = api_info.dependencies
-                analysis['estimated_tests'] = len(api_info.endpoints)
-        except Exception:
-            pass
+        if code_type == CodeType.PYTHON:
+            # Python analysis
+            try:
+                module_info = self.code_analyzer.analyze_file(file_path)
+                analysis['file_type'] = 'python'
+                analysis['functions'] = [{'name': f.name, 'parameters': len(f.parameters)} for f in module_info.functions]
+                analysis['classes'] = [{'name': c.name, 'methods': len(c.methods)} for c in module_info.classes]
+                analysis['dependencies'] = list(module_info.dependencies)
+                analysis['estimated_tests'] = len(module_info.functions) + sum(len(c.methods) for c in module_info.classes)
+            except Exception as e:
+                print(f"Error analyzing Python file {file_path}: {e}")
+        
+        elif code_type == CodeType.API:
+            # API analysis
+            try:
+                api_info = self.api_analyzer.analyze_file(file_path)
+                if api_info:
+                    analysis['file_type'] = 'api'
+                    analysis['functions'] = []  # API modules don't have separate functions
+                    analysis['classes'] = []    # API modules don't have separate classes
+                    analysis['endpoints'] = [{'name': e.name, 'method': e.method, 'path': e.path} for e in api_info.endpoints]
+                    analysis['dependencies'] = list(api_info.dependencies)
+                    analysis['estimated_tests'] = len(api_info.endpoints)
+            except Exception as e:
+                print(f"Error analyzing API file {file_path}: {e}")
         
         return analysis
     

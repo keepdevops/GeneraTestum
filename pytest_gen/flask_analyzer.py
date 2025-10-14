@@ -12,14 +12,17 @@ from .base_api_analyzer import BaseAPIAnalyzer
 class FlaskAnalyzer(BaseAPIAnalyzer):
     """Analyzer for Flask applications."""
     
+    def __init__(self, config=None):
+        super().__init__()
+        self.config = config
+    
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         """Visit Flask route functions."""
-        decorators = [self._get_decorator_name(dec) for dec in node.decorator_list]
-        
         # Look for @app.route decorators
-        for decorator in decorators:
-            if 'route' in decorator.lower():
-                endpoint = self._extract_flask_endpoint(node, decorator)
+        for decorator in node.decorator_list:
+            decorator_str = ast.unparse(decorator)
+            if 'route' in decorator_str.lower():
+                endpoint = self._extract_flask_endpoint(node, decorator_str)
                 if endpoint:
                     self.endpoints.append(endpoint)
         
@@ -27,16 +30,22 @@ class FlaskAnalyzer(BaseAPIAnalyzer):
     
     def _extract_flask_endpoint(self, node: ast.FunctionDef, decorator: str) -> Optional[APIEndpoint]:
         """Extract Flask endpoint information."""
-        # Extract route path from decorator (simplified)
+        # Extract route path from decorator
         path_match = re.search(r'route\(["\']([^"\']+)["\']', decorator)
         path = path_match.group(1) if path_match else '/'
         
-        # Determine HTTP method (simplified)
+        # Determine HTTP method
         method = 'GET'
         if 'methods=' in decorator:
             methods_match = re.search(r'methods=\[["\']([^"\']+)["\']', decorator)
             if methods_match:
                 method = methods_match.group(1)
+            elif 'POST' in decorator:
+                method = 'POST'
+            elif 'PUT' in decorator:
+                method = 'PUT'
+            elif 'DELETE' in decorator:
+                method = 'DELETE'
         
         # Extract parameters
         parameters = []
@@ -69,6 +78,8 @@ class FlaskAnalyzer(BaseAPIAnalyzer):
         """Get decorator name from AST node."""
         if isinstance(decorator, ast.Name):
             return decorator.id
+        elif isinstance(decorator, ast.Call):
+            return self._get_decorator_name(decorator.func)
         elif isinstance(decorator, ast.Attribute):
             return decorator.attr
         return str(decorator)

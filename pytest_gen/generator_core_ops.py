@@ -9,6 +9,8 @@ from .api_analyzer import APIAnalyzer
 from .api_models import APIModuleInfo
 from .test_builder import TestBuilder, TestFile
 from .source_analyzer import SourceAnalyzer
+from .plugin_manager import PluginManager
+from .config import CodeType
 
 
 class GeneratorCoreOperations:
@@ -20,18 +22,29 @@ class GeneratorCoreOperations:
         self.api_analyzer = APIAnalyzer(self.config)
         self.test_builder = TestBuilder(self.config)
         self.source_analyzer = SourceAnalyzer(self.config)
+        self.plugin_manager = PluginManager(self.config)
     
     def generate_tests_for_file(self, file_path: str) -> List[str]:
-        """Generate tests for a single file."""
+        """Generate tests for a single file using appropriate plugin."""
         # Ensure output directory exists
         os.makedirs(self.config.output_dir, exist_ok=True)
         
-        # Detect file type
+        # Try to use plugin manager first
+        plugin = self.plugin_manager.get_plugin_for_file(file_path)
+        if plugin:
+            try:
+                analysis_result = plugin.analyze_file(file_path)
+                if analysis_result:
+                    return plugin.generate_tests(analysis_result)
+            except Exception as e:
+                print(f"Plugin failed for {file_path}: {e}")
+        
+        # Fallback to original logic for Python/API files
         code_type = self.source_analyzer.detect_file_type(file_path)
         
-        if code_type == "python":
+        if code_type == CodeType.PYTHON:
             return self._generate_python_tests(file_path)
-        elif code_type == "api":
+        elif code_type == CodeType.API:
             return self._generate_api_tests(file_path)
         else:
             return []

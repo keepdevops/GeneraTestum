@@ -12,6 +12,10 @@ from .generator_core import GeneratorCore
 from .ai_chat_widget import AIChatWidget
 from .ai_assistant import AIAssistant
 
+# Configure Panel to avoid realtime plugin issues
+pn.config.console_output = 'disable'
+pn.config.realtime = False
+
 
 class TestGeneratorGUI:
     """Main Panel GUI application for test generation."""
@@ -121,9 +125,24 @@ class TestGeneratorGUI:
     
     def serve(self, port: int = 5007, show: bool = True, **kwargs):
         """Serve the Panel application."""
-        if 'show' in kwargs:
-            kwargs.pop('show')  # Remove show from kwargs to avoid duplicate
-        return self.layout.show(port=port, show=show, **kwargs)
+        # Remove show from kwargs to avoid duplicate parameter
+        kwargs.pop('show', None)
+        
+        # Use a simplified approach to avoid Panel library issues
+        try:
+            # Try the standard approach first
+            return self.layout.show(port=port, show=show, **kwargs)
+        except TypeError as e:
+            if "multiple values for keyword argument 'show'" in str(e):
+                # Fallback: use server.serve without show parameter
+                import panel.io.server as server
+                return server.serve(
+                    panels=self.layout,
+                    port=port,
+                    **kwargs
+                )
+            else:
+                raise
     
     def get_layout(self):
         """Get the complete layout."""
@@ -132,5 +151,12 @@ class TestGeneratorGUI:
 
 def launch_gui(port: int = 5007, show: bool = True, **kwargs):
     """Launch the test generator GUI."""
+    # Disable realtime extensions to avoid plugin errors
+    kwargs.setdefault('allow_websocket_origin', ['*'])
+    kwargs.setdefault('reuse_sessions', False)
+    
+    # Remove show from kwargs to avoid duplicate parameter
+    kwargs.pop('show', None)
+    
     app = TestGeneratorGUI()
     return app.serve(port=port, show=show, **kwargs)

@@ -20,12 +20,7 @@ class GeneratorCore:
         if output_dir:
             self.config.output_dir = output_dir
         
-        if os.path.isfile(source_path):
-            return self.operations.generate_tests_for_file(source_path)
-        elif os.path.isdir(source_path):
-            return self.operations.generate_tests_for_directory(source_path)
-        else:
-            raise ValueError(f"Source path '{source_path}' does not exist")
+        return self.operations.generate_tests(source_path)
     
     def generate_tests_from_code(self, code: str, file_path: str = "<string>", output_dir: str = None) -> List[str]:
         """Generate tests from code string."""
@@ -58,7 +53,7 @@ class GeneratorCore:
     
     def analyze_source(self, source_path: str) -> dict:
         """Analyze source code and return information about what tests would be generated."""
-        return self.operations.source_analyzer.analyze_source(source_path)
+        return self.operations.analyze_source(source_path)
 
 
 # Convenience function for library usage

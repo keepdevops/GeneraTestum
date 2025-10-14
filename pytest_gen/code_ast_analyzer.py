@@ -83,9 +83,9 @@ class ASTAnalyzer(ast.NodeVisitor):
         self.classes.append(class_info)
         self.generic_visit(node)
         
-        # Extract dependencies from class methods
+        # Dependencies are already extracted when creating FunctionInfo objects
         for method in class_info.methods:
-            class_info.dependencies.update(self._extract_dependencies_from_node(method))
+            class_info.dependencies.update(method.dependencies)
         
         self.current_class = old_class
     
@@ -122,7 +122,8 @@ class ASTAnalyzer(ast.NodeVisitor):
                 if child.id in self.external_dependencies:
                     dependencies.add(child.id)
             elif isinstance(child, ast.Attribute):
-                if child.value.id in self.external_dependencies:
+                # Handle nested attributes like module.submodule
+                if isinstance(child.value, ast.Name) and child.value.id in self.external_dependencies:
                     dependencies.add(child.value.id)
         
         return dependencies

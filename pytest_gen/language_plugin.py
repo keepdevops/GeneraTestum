@@ -47,8 +47,8 @@ class LanguagePlugin(ABC):
         pass
     
     @abstractmethod
-    def generate_tests(self, analysis_result: Any) -> List[GeneratedTest]:
-        """Generate tests from analysis result."""
+    def generate_tests(self, analysis_result: Any) -> List[str]:
+        """Generate tests from analysis result and return file paths."""
         pass
     
     @abstractmethod

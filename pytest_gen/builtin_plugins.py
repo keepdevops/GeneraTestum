@@ -2,6 +2,7 @@
 Built-in language plugins for the test generator.
 """
 
+import os
 from typing import Dict, List, Set, Optional, Any
 from .config import GeneratorConfig
 from .language_plugin import LanguagePlugin
@@ -38,10 +39,22 @@ class PythonLanguagePlugin(LanguagePlugin):
         analyzer = CodeAnalyzer(self.config)
         return analyzer.analyze_code(code, file_path)
     
-    def generate_tests(self, analysis_result: Any) -> List[Any]:
+    def generate_tests(self, analysis_result: Any) -> List[str]:
         from .test_builder import TestBuilder
         test_builder = TestBuilder(self.config)
-        return test_builder.generate_tests_for_module(analysis_result)
+        
+        # Generate tests and write to disk
+        test_files = test_builder.build_tests_for_module(analysis_result)
+        
+        # Write test files
+        written_files = []
+        for test_file in test_files:
+            output_path = os.path.join(self.config.output_dir, test_file.file_path)
+            with open(output_path, 'w') as f:
+                f.write(test_file.content)
+            written_files.append(output_path)
+        
+        return written_files
     
     def detect_framework(self, analysis_result: Any) -> Optional[str]:
         return None  # Python framework detection handled by API analyzer
@@ -80,7 +93,7 @@ class JavaLanguagePlugin(LanguagePlugin):
         analyzer = JavaAnalyzer(self.config)
         return analyzer.analyze_code(code, file_path)
     
-    def generate_tests(self, analysis_result: Any) -> List[Any]:
+    def generate_tests(self, analysis_result: Any) -> List[str]:
         from .java_test_builder import JavaTestBuilder
         test_builder = JavaTestBuilder(self.config)
         return test_builder.generate_tests_for_file(analysis_result)

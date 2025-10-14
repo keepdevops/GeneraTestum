@@ -91,6 +91,70 @@ class MockGenerator:
         
         return self._deduplicate_mocks(mocks)
     
+    def generate_mocks_for_api_endpoint(self, endpoint) -> List[MockInfo]:
+        """Generate mocks needed for an API endpoint test."""
+        if self.config.mock_level == MockLevel.NONE:
+            return []
+        
+        mocks = []
+        
+        # Mock HTTP requests
+        if hasattr(endpoint, 'method') and endpoint.method.upper() in ['GET', 'POST', 'PUT', 'DELETE']:
+            method = endpoint.method.lower()
+            mocks.append(MockInfo(
+                target=f'requests.{method}',
+                mock_name=f'mock_requests_{method}',
+                return_value={
+                    'status_code': 200,
+                    'json': lambda: {'success': True, 'data': 'mock_data'},
+                    'text': 'mock response'
+                },
+                is_patch=True,
+                patch_path=f'requests.{method}'
+            ))
+        
+        # Mock common API dependencies
+        api_mocks = [
+            ('requests.get', 'mock_requests_get'),
+            ('requests.post', 'mock_requests_post'),
+            ('requests.put', 'mock_requests_put'),
+            ('requests.delete', 'mock_requests_delete'),
+            ('json.loads', 'mock_json_loads'),
+            ('json.dumps', 'mock_json_dumps'),
+        ]
+        
+        for target, mock_name in api_mocks:
+            mocks.append(MockInfo(
+                target=target,
+                mock_name=mock_name,
+                return_value='mock_result' if 'json' not in target else '{"mock": "data"}',
+                is_patch=True,
+                patch_path=target
+            ))
+        
+        return self._deduplicate_mocks(mocks)
+    
+    def get_mock_imports(self, mocks: List[MockInfo]) -> Set[str]:
+        """Get import statements needed for the given mocks."""
+        imports = set()
+        
+        for mock in mocks:
+            if mock.is_patch:
+                imports.add('from unittest.mock import patch')
+                imports.add('from unittest.mock import Mock, MagicMock')
+            
+            # Add specific imports based on mock targets
+            if 'requests' in mock.target:
+                imports.add('import requests')
+            if 'json' in mock.target:
+                imports.add('import json')
+            if 'datetime' in mock.target:
+                imports.add('from datetime import datetime')
+            if 'os' in mock.target:
+                imports.add('import os')
+        
+        return imports
+    
     def _create_mock_for_dependency(self, dependency: str) -> Optional[MockInfo]:
         """Create a mock for a specific dependency."""
         dependency_lower = dependency.lower()

@@ -143,3 +143,16 @@ class FileGridOperations:
         selected_paths = matching_files['path'].tolist()
         self.file_grid.selected_files = selected_paths
         self.file_grid.widgets.grid.selection = matching_files.to_dict('records')
+    
+    def _format_size(self, size_bytes: int) -> str:
+        """Format file size in human readable format."""
+        if size_bytes == 0:
+            return "0B"
+        
+        size_names = ["B", "KB", "MB", "GB", "TB"]
+        i = 0
+        while size_bytes >= 1024 and i < len(size_names) - 1:
+            size_bytes /= 1024.0
+            i += 1
+        
+        return f"{size_bytes:.1f}{size_names[i]}"

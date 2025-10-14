@@ -1,0 +1,103 @@
+{
+  "patterns": {
+    "arithmetic_functions": {
+      "description": "Patterns for basic arithmetic operations",
+      "test_cases": [
+        {
+          "name": "happy_path",
+          "description": "Basic functionality test",
+          "template": "assert {function_name}({args}) == {expected_result}"
+        },
+        {
+          "name": "edge_cases",
+          "description": "Edge case testing",
+          "template": "assert {function_name}({edge_case_args}) == {expected_result}"
+        },
+        {
+          "name": "boundary_values",
+          "description": "Boundary value testing",
+          "template": "assert {function_name}({boundary_args}) == {expected_result}"
+        }
+      ],
+      "examples": {
+        "add": {
+          "happy_path": [
+            "assert add(2, 3) == 5",
+            "assert add(0, 0) == 0",
+            "assert add(-1, 1) == 0"
+          ],
+          "edge_cases": [
+            "assert add(1.5, 2.5) == 4.0",
+            "assert add(-5, -3) == -8",
+            "assert add(999999, 1) == 1000000"
+          ]
+        }
+      }
+    },
+    "validation_functions": {
+      "description": "Patterns for input validation functions",
+      "test_cases": [
+        {
+          "name": "valid_inputs",
+          "description": "Test with valid inputs",
+          "template": "assert {function_name}({valid_args}) == True"
+        },
+        {
+          "name": "invalid_inputs",
+          "description": "Test with invalid inputs",
+          "template": "assert {function_name}({invalid_args}) == False"
+        },
+        {
+          "name": "edge_cases",
+          "description": "Test edge cases",
+          "template": "assert {function_name}({edge_args}) == {expected_result}"
+        }
+      ],
+      "examples": {
+        "is_prime": {
+          "valid_inputs": [
+            "assert is_prime(2) == True",
+            "assert is_prime(3) == True",
+            "assert is_prime(17) == True"
+          ],
+          "invalid_inputs": [
+            "assert is_prime(1) == False",
+            "assert is_prime(4) == False",
+            "assert is_prime(15) == False"
+          ],
+          "edge_cases": [
+            "assert is_prime(0) == False",
+            "assert is_prime(-1) == False"
+          ]
+        }
+      }
+    },
+    "error_handling_functions": {
+      "description": "Patterns for functions that raise exceptions",
+      "test_cases": [
+        {
+          "name": "happy_path",
+          "description": "Normal operation",
+          "template": "result = {function_name}({valid_args})\nassert result == {expected_result}"
+        },
+        {
+          "name": "error_cases",
+          "description": "Test error conditions",
+          "template": "with pytest.raises({exception_type}):\n    {function_name}({error_args})"
+        }
+      ],
+      "examples": {
+        "divide": {
+          "happy_path": [
+            "result = divide(10, 2)\nassert result == 5.0",
+            "result = divide(9, 3)\nassert result == 3.0"
+          ],
+          "error_cases": [
+            "with pytest.raises(ValueError, match='Cannot divide by zero'):\n    divide(5, 0)",
+            "with pytest.raises(ZeroDivisionError):\n    divide(10, 0)"
+          ]
+        }
+      }
+    }
+  }
+}
