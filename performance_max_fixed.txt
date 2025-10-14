@@ -1,0 +1,1 @@
+✅ No performance tests needed - no performance-critical functions found.

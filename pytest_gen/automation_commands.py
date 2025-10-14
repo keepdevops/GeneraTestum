@@ -4,8 +4,8 @@ CLI commands for advanced automation features.
 
 import click
 from .automation_helpers import (
-    run_automated_tests, analyze_coverage_gaps, generate_smart_mocks, 
-    run_complete_analysis
+    run_automated_tests, analyze_coverage_gaps, generate_smart_mocks,
+    run_complete_analysis, analyze_refactoring_suggestions, analyze_performance_requirements
 )
 
 
@@ -58,6 +58,22 @@ def complete_analysis(source_path: str, test_path: str, min_coverage: int,
                       auto_fix: bool, output_dir: str):
     """Run complete automated analysis with all features."""
     run_complete_analysis(source_path, test_path, min_coverage, auto_fix, output_dir)
+
+
+@automation.command()
+@click.argument('test_path')
+@click.option('--output', '-o', help='Output file for refactoring report')
+def refactor(test_path: str, output: str):
+    """Analyze test failures and suggest code refactoring improvements."""
+    analyze_refactoring_suggestions(test_path, output)
+
+
+@automation.command()
+@click.argument('source_file')
+@click.option('--output', '-o', help='Output file for performance analysis report')
+def performance(source_file: str, output: str):
+    """Analyze source file and generate performance tests."""
+    analyze_performance_requirements(source_file, output)
 
 
 @automation.command()

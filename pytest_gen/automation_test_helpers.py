@@ -7,6 +7,8 @@ import os
 from typing import Dict, Any
 from .auto_test_runner import AutoTestRunner
 from .auto_coverage_analyzer import AutoCoverageAnalyzer
+from .auto_refactoring import AutoRefactoringAnalyzer
+from .auto_performance_testing import AutoPerformanceTesting
 
 
 def run_automated_tests(test_path: str, with_coverage: bool, timeout: int, output: str):
@@ -147,3 +149,63 @@ def run_complete_analysis(source_path: str, test_path: str, min_coverage: int,
     if auto_fix:
         click.echo(f"  • Auto-generated tests: {len(test_suggestions) if 'test_suggestions' in locals() else 0}")
     click.echo(f"  • Output directory: {output_dir}")
+
+
+def analyze_refactoring_suggestions(test_path: str, output: str):
+    """Analyze test failures and suggest code refactoring improvements."""
+    runner = AutoTestRunner()
+    analyzer = AutoRefactoringAnalyzer()
+    
+    click.echo(f"🔧 Running automated refactoring analysis...")
+    click.echo(f"Test path: {test_path}")
+    click.echo("")
+    
+    # Run tests to get failure information
+    suite_result = runner.run_tests(test_path)
+    
+    # Analyze failures for refactoring suggestions
+    suggestions = analyzer.analyze_failures(suite_result)
+    
+    # Generate refactoring report
+    report = analyzer.generate_refactoring_report(suggestions)
+    click.echo(report)
+    
+    # Save detailed report if requested
+    if output:
+        with open(output, 'w') as f:
+            f.write(report)
+        click.echo(f"\n📄 Refactoring report saved to: {output}")
+    
+    # Return suggestions for further processing
+    return suggestions
+
+
+def analyze_performance_requirements(source_file: str, output: str):
+    """Analyze source file and generate performance tests."""
+    analyzer = AutoPerformanceTesting()
+    
+    click.echo(f"⚡ Running automatic performance test analysis...")
+    click.echo(f"Source file: {source_file}")
+    click.echo("")
+    
+    # Analyze and generate performance tests
+    tests = analyzer.analyze_and_generate_tests(source_file)
+    
+    # Generate report
+    report = analyzer.generate_performance_report(tests)
+    click.echo(report)
+    
+    # Save detailed report if requested
+    if output:
+        with open(output, 'w') as f:
+            f.write(report)
+            if tests:
+                f.write("\n\n" + "=" * 60 + "\n")
+                f.write("GENERATED PERFORMANCE TESTS\n")
+                f.write("=" * 60 + "\n")
+                for test in tests:
+                    f.write(f"\n# Performance tests for {test.function_name}\n")
+                    f.write(test.test_code)
+        click.echo(f"\n📄 Performance analysis saved to: {output}")
+    
+    return tests
