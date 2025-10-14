@@ -6,6 +6,10 @@ import click
 from .cli_commands import (
     generate_command, analyze_command, init_config_command, info_command
 )
+from .ai_commands import (
+    ask_command, explain_command, suggest_command, review_command, 
+    assistant_command, ai_status_command
+)
 
 
 @click.group()
@@ -76,6 +80,55 @@ def gui(port: int, show: bool):
     except Exception as e:
         click.echo(f"Error launching GUI: {e}")
         sys.exit(1)
+
+
+# AI Assistant Commands
+@cli.command()
+@click.argument('question', required=True)
+@click.option('--file', '-f', help='File to provide as context for the question')
+@click.option('--verbose', '-v', is_flag=True, help='Show detailed response information')
+def ask(question, file, verbose):
+    """Ask the AI assistant a question about testing."""
+    ask_command(question, file, verbose)
+
+
+@cli.command()
+@click.argument('test_file', required=True)
+@click.option('--verbose', '-v', is_flag=True, help='Show detailed explanation')
+def explain(test_file, verbose):
+    """Explain what tests will be generated or what existing tests do."""
+    explain_command(test_file, verbose)
+
+
+@cli.command()
+@click.argument('source_file', required=True)
+@click.option('--tests', '-t', help='Existing test file to compare against')
+@click.option('--verbose', '-v', is_flag=True, help='Show detailed suggestions')
+def suggest(source_file, tests, verbose):
+    """Suggest test improvements or new tests for source code."""
+    suggest_command(source_file, tests, verbose)
+
+
+@cli.command()
+@click.argument('test_directory', default='tests/')
+@click.option('--detailed', '-d', is_flag=True, help='Show detailed review')
+@click.option('--verbose', '-v', is_flag=True, help='Show token usage')
+def review(test_directory, detailed, verbose):
+    """Review all tests in a directory and provide feedback."""
+    review_command(test_directory, detailed, verbose)
+
+
+@cli.command()
+@click.option('--interactive', '-i', is_flag=True, help='Start interactive mode')
+def assistant(interactive):
+    """Launch AI assistant in interactive mode."""
+    assistant_command(interactive)
+
+
+@cli.command()
+def ai_status():
+    """Check AI assistant configuration and status."""
+    ai_status_command()
 
 
 if __name__ == '__main__':

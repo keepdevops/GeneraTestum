@@ -3,7 +3,12 @@ Configuration widgets for test generation settings.
 """
 
 import panel as pn
-from panel.widgets import TextInput, Select, Checkbox, IntInput, Accordion
+from panel.widgets import TextInput, Select, Checkbox, IntInput
+try:
+    from panel.widgets import Accordion
+except ImportError:
+    # Fallback for older Panel versions
+    from panel.layout import Accordion
 from typing import Dict, Any
 from .config import GeneratorConfig, MockLevel, TestCoverage
 

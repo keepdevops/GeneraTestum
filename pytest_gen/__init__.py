@@ -11,11 +11,13 @@ __author__ = "Pytest Generator"
 from .generator_core import generate_tests, GeneratorCore
 from .config import DEFAULT_CONFIG, GeneratorConfig
 from .panel_gui import launch_gui
+from .ai_assistant import AIAssistant
 
 __all__ = [
     "generate_tests",
     "GeneratorCore",
     "GeneratorConfig", 
     "DEFAULT_CONFIG",
-    "launch_gui"
+    "launch_gui",
+    "AIAssistant"
 ]

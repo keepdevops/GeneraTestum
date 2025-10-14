@@ -76,8 +76,7 @@ class PreviewWidget:
             name="Generated Test Preview",
             value="# Select files and click 'Preview' to see generated tests...",
             height=400,
-            width=800,
-            readonly=True
+            width=800
         )
         
         self.widgets['progress'] = pn.indicators.Progress(

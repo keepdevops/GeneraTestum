@@ -4,9 +4,10 @@ A comprehensive tool for automatically generating pytest test cases from Python 
 
 ## Features
 
+- **🤖 AI-Powered Assistant**: Intelligent guidance for test generation with natural language queries
 - **Multi-Language Support**: Python, Java (JUnit 5), and Panel applications
 - **Multi-Type Code Analysis**: Supports Python functions/classes, Flask, FastAPI, Django, Tornado, and Panel APIs
-- **Interactive Panel GUI**: Modern web-based interface with file browser and live preview
+- **Interactive Panel GUI**: Modern web-based interface with file browser, live preview, and AI chat
 - **Comprehensive Test Generation**: Happy path, edge cases, error handling, and boundary tests
 - **Smart Mocking**: Automatic detection and mocking of external dependencies
 - **Pytest Fixtures**: Auto-generated fixtures for common test setups
@@ -50,6 +51,38 @@ Launch the interactive Panel GUI:
 pytest-gen gui --port 5007
 ```
 
+Ask the AI assistant for help:
+```bash
+pytest-gen ask "How do I test async functions?"
+pytest-gen ask "What should I mock?" --file src/api.py
+```
+
+Get test suggestions:
+```bash
+pytest-gen suggest src/module.py
+pytest-gen suggest src/module.py --tests tests/test_module.py
+```
+
+Explain generated tests:
+```bash
+pytest-gen explain tests/test_module.py
+```
+
+Review all tests:
+```bash
+pytest-gen review tests/
+```
+
+Interactive AI assistant:
+```bash
+pytest-gen assistant --interactive
+```
+
+Check AI status:
+```bash
+pytest-gen ai-status
+```
+
 Analyze code without generating tests:
 ```bash
 pytest-gen analyze my_api.py
@@ -58,7 +91,8 @@ pytest-gen analyze my_api.py
 ### Library Usage
 
 ```python
-from pytest_gen import generate_tests, GeneratorConfig
+from pytest_gen import generate_tests, GeneratorConfig, launch_gui
+from pytest_gen.ai_assistant import AIAssistant
 
 # Generate tests with default settings
 test_files = generate_tests('my_module.py')
@@ -70,6 +104,78 @@ config = GeneratorConfig(
     output_dir='custom_tests/'
 )
 test_files = generate_tests('my_module.py', config=config)
+
+# Launch the Panel GUI programmatically
+launch_gui(port=5007, show=True)
+
+# Use AI assistant programmatically
+assistant = AIAssistant()
+response = assistant.ask("How do I test database operations?")
+print(response["response"])
+
+# Get AI recommendations for code
+recommendations = assistant.analyze_code("src/my_module.py")
+print(recommendations["analysis"])
+```
+
+## AI Assistant Setup
+
+### Configuration
+
+The AI assistant supports multiple providers:
+
+1. **OpenAI** (recommended)
+```bash
+export OPENAI_API_KEY="sk-your-openai-api-key"
+export PYTEST_GEN_AI_PROVIDER="openai"
+export PYTEST_GEN_AI_MODEL="gpt-4"
+```
+
+2. **Anthropic Claude**
+```bash
+export ANTHROPIC_API_KEY="your-anthropic-api-key"
+export PYTEST_GEN_AI_PROVIDER="anthropic"
+export PYTEST_GEN_AI_MODEL="claude-3-sonnet-20240229"
+```
+
+3. **Local Ollama** (offline)
+```bash
+export PYTEST_GEN_AI_PROVIDER="ollama"
+export PYTEST_GEN_AI_MODEL="llama2"
+export PYTEST_GEN_AI_BASE_URL="http://localhost:11434"
+```
+
+### AI Assistant Features
+
+- **Natural Language Queries**: Ask questions in plain English
+- **Context-Aware Responses**: AI understands your code and configuration
+- **Test Strategy Guidance**: Get recommendations for comprehensive testing
+- **Mock Recommendations**: Learn what to mock and why
+- **Coverage Analysis**: Identify missing test scenarios
+- **Best Practices**: Learn testing patterns and anti-patterns
+- **Error Resolution**: Get help debugging test generation issues
+- **Interactive Chat**: Multi-turn conversations with memory
+
+### Example AI Interactions
+
+**Test Strategy Questions:**
+```bash
+pytest-gen ask "How should I test this Flask API endpoint?"
+pytest-gen ask "What's the best way to mock database calls?"
+pytest-gen ask "How do I test async functions with pytest?"
+```
+
+**Code-Specific Help:**
+```bash
+pytest-gen ask "What tests should I write for this function?" --file src/utils.py
+pytest-gen ask "Is my mocking strategy correct?" --file tests/test_api.py
+```
+
+**Best Practices:**
+```bash
+pytest-gen ask "What are pytest best practices for fixtures?"
+pytest-gen ask "How do I write maintainable test code?"
+pytest-gen ask "What are common testing anti-patterns to avoid?"
 ```
 
 ## Configuration

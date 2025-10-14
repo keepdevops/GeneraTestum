@@ -9,6 +9,8 @@ from .ui_widgets import ActionWidgets, PreviewWidget, FileTreeWidget
 from .gui_layouts import GUILayouts
 from .gui_handlers import GUIHandlers
 from .generator_core import GeneratorCore
+from .ai_chat_widget import AIChatWidget
+from .ai_assistant import AIAssistant
 
 
 class TestGeneratorGUI:
@@ -22,10 +24,15 @@ class TestGeneratorGUI:
         self.preview_widget = PreviewWidget()
         self.file_tree = FileTreeWidget()
         
+        # Initialize AI assistant
+        self.ai_assistant = None
+        self.ai_chat_widget = None
+        self._initialize_ai_assistant()
+        
         # Create layouts and handlers
         self.layouts = GUILayouts(
             self.file_grid, self.config_widgets, self.action_widgets,
-            self.preview_widget, self.file_tree
+            self.preview_widget, self.file_tree, self.ai_chat_widget
         )
         
         self.handlers = GUIHandlers(
@@ -34,6 +41,51 @@ class TestGeneratorGUI:
         
         self._setup_callbacks()
         self._create_layout()
+    
+    def _initialize_ai_assistant(self):
+        """Initialize AI assistant and chat widget."""
+        try:
+            self.ai_assistant = AIAssistant()
+            init_result = self.ai_assistant.initialize()
+            
+            if init_result["success"]:
+                self.ai_chat_widget = AIChatWidget(self.ai_assistant)
+                # Add context callback to provide file information
+                self.ai_chat_widget.add_context_callback(self._get_ai_context)
+            else:
+                print(f"AI Assistant initialization failed: {init_result.get('errors', [])}")
+                
+        except Exception as e:
+            print(f"Failed to initialize AI Assistant: {e}")
+    
+    def _get_ai_context(self) -> dict:
+        """Provide context for AI assistant based on current selection."""
+        context = {}
+        
+        # Get selected files from file grid
+        selected_files = self.file_grid.get_selected_files()
+        if selected_files:
+            context["selected_files"] = selected_files
+            
+            # Add content of first selected file
+            try:
+                with open(selected_files[0], 'r') as f:
+                    content = f.read()
+                    context["current_file_content"] = content
+                    context["current_file_path"] = selected_files[0]
+            except Exception:
+                pass
+        
+        # Add current configuration
+        config = self.generator.get_config()
+        context["configuration"] = {
+            "mock_level": str(config.mock_level),
+            "coverage_type": str(config.coverage_type),
+            "include_private_methods": config.include_private_methods,
+            "generate_fixtures": config.generate_fixtures
+        }
+        
+        return context
     
     def _setup_callbacks(self):
         """Setup event callbacks for widgets."""
