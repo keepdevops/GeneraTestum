@@ -2,18 +2,13 @@
 Core functionality for AI assistant operations.
 """
 
-import os
 from typing import Dict, List, Any, Optional
-from .ai_config import AIConfigManager, AIProvider
+from .ai_config import AIConfigManager
+from .ai_types import AIProvider
 from .ai_context import AIContext
 from .ai_prompts import PromptTemplates, PromptType
 from .ai_providers import AIProviderFactory
-
-# Optional imports for AI functionality
-try:
-    import tiktoken
-except ImportError:
-    tiktoken = None
+from .ai_operations import AIOperations
 
 
 class AIAssistantCore:
@@ -26,17 +21,23 @@ class AIAssistantCore:
         self.prompts = PromptTemplates()
         self._token_encoder = None
         self._provider = None
-        self._initialize_token_encoder()
+        self._operations = None
+        self._initialize_components()
+    
+    def _initialize_components(self):
+        """Initialize token encoder and operations."""
+        self._token_encoder = self._initialize_token_encoder()
+        # Operations will be initialized after provider is set
     
     def _initialize_token_encoder(self):
         """Initialize token encoder for counting tokens."""
         try:
-            if tiktoken:
-                self._token_encoder = tiktoken.get_encoding("cl100k_base")
-            else:
-                self._token_encoder = None
+            import tiktoken
+            return tiktoken.get_encoding("cl100k_base")
+        except ImportError:
+            return None
         except Exception:
-            self._token_encoder = None
+            return None
     
     def initialize_provider(self, api_key: Optional[str] = None) -> Dict[str, Any]:
         """Initialize the AI provider."""
@@ -57,6 +58,8 @@ class AIAssistantCore:
             self._provider = AIProviderFactory.create_provider(
                 self.config.provider.value, self.config
             )
+            # Initialize operations with provider
+            self._operations = AIOperations(self.prompts, self._provider, self._token_encoder)
         except Exception as e:
             return {
                 "success": False,
@@ -78,7 +81,7 @@ class AIAssistantCore:
                 "error": "AI assistant is disabled"
             }
         
-        if not self._provider:
+        if not self._provider or not self._operations:
             return {
                 "success": False,
                 "error": "AI provider not initialized"
@@ -94,7 +97,7 @@ class AIAssistantCore:
             self.context.add_message("user", question)
             
             # Generate response
-            response = self._generate_response(question, relevant_context)
+            response = self._operations.generate_response_with_context(question, relevant_context)
             
             # Add assistant response to context
             self.context.add_message("assistant", response["content"])
@@ -116,35 +119,18 @@ class AIAssistantCore:
         """Analyze source code and provide testing recommendations."""
         if code is None:
             try:
-                with open(source_path, 'r') as f:
-                    code = f.read()
+                code = self._operations.read_file_safely(source_path)
             except Exception as e:
                 return {
                     "success": False,
-                    "error": f"Failed to read file: {str(e)}"
+                    "error": str(e)
                 }
         
         # Add code to context
         self.context.add_code_context(source_path, code)
         
-        # Generate analysis prompt
-        prompt = self.prompts.get_prompt(
-            PromptType.TEST_STRATEGY,
-            code=code,
-            code_type="Python",  # TODO: Detect from code
-            framework="Unknown"   # TODO: Detect from code
-        )
-        
         try:
-            response = self._call_ai_api(prompt)
-            
-            return {
-                "success": True,
-                "analysis": response["content"],
-                "file_path": source_path,
-                "tokens_used": response.get("tokens_used", 0)
-            }
-            
+            return self._operations.analyze_code_with_prompt(code, source_path)
         except Exception as e:
             return {
                 "success": False,
@@ -154,20 +140,7 @@ class AIAssistantCore:
     def get_test_suggestions(self, analysis_result: Dict[str, Any]) -> Dict[str, Any]:
         """Suggest specific tests based on analysis."""
         try:
-            prompt = self.prompts.get_prompt(
-                PromptType.COVERAGE_ANALYSIS,
-                source_code=analysis_result.get("code", ""),
-                existing_tests=analysis_result.get("existing_tests", "")
-            )
-            
-            response = self._call_ai_api(prompt)
-            
-            return {
-                "success": True,
-                "suggestions": response["content"],
-                "tokens_used": response.get("tokens_used", 0)
-            }
-            
+            return self._operations.suggest_tests_with_prompt(analysis_result)
         except Exception as e:
             return {
                 "success": False,
@@ -177,33 +150,7 @@ class AIAssistantCore:
     def explain_test_generation(self, test_files: List[str]) -> Dict[str, Any]:
         """Explain what tests will be generated."""
         try:
-            # Read test file contents
-            test_contents = []
-            for file_path in test_files:
-                try:
-                    with open(file_path, 'r') as f:
-                        content = f.read()
-                        test_contents.append(f"File: {file_path}\n{content}")
-                except Exception:
-                    continue
-            
-            combined_tests = "\n\n".join(test_contents)
-            
-            prompt = self.prompts.get_prompt(
-                PromptType.CODE_EXPLANATION,
-                code=combined_tests,
-                config="Default configuration"
-            )
-            
-            response = self._call_ai_api(prompt)
-            
-            return {
-                "success": True,
-                "explanation": response["content"],
-                "test_files": test_files,
-                "tokens_used": response.get("tokens_used", 0)
-            }
-            
+            return self._operations.explain_generation_with_prompt(test_files)
         except Exception as e:
             return {
                 "success": False,
@@ -213,59 +160,16 @@ class AIAssistantCore:
     def get_best_practices_info(self, topic: str, context: str = "") -> Dict[str, Any]:
         """Get best practices for a testing topic."""
         try:
-            prompt = self.prompts.get_prompt(
-                PromptType.BEST_PRACTICES,
-                topic=topic,
-                context=context
-            )
-            
-            response = self._call_ai_api(prompt)
-            
-            return {
-                "success": True,
-                "best_practices": response["content"],
-                "topic": topic,
-                "tokens_used": response.get("tokens_used", 0)
-            }
-            
+            return self._operations.get_best_practices_with_prompt(topic, context)
         except Exception as e:
             return {
                 "success": False,
                 "error": f"Failed to get best practices: {str(e)}"
             }
     
-    def _generate_response(self, question: str, context: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate AI response with context."""
-        # Build conversation prompt
-        conversation_prompt = self.prompts.get_prompt(
-            PromptType.CONVERSATION,
-            question=question,
-            context=str(context.get("current_code", "")),
-            conversation_history=context.get("conversation_history", "")
-        )
-        
-        # Add system prompt
-        system_prompt = self.prompts.get_prompt(PromptType.SYSTEM)
-        
-        # Combine prompts
-        full_prompt = f"{system_prompt}\n\n{conversation_prompt}"
-        
-        return self._call_ai_api(full_prompt)
-    
-    def _call_ai_api(self, prompt: str) -> Dict[str, Any]:
-        """Call the appropriate AI API based on configuration."""
-        if not self._provider:
-            raise Exception("AI provider not initialized")
-        
-        return self._provider.call_api(prompt)
-    
     def count_tokens(self, text: str) -> int:
         """Count tokens in text."""
-        if self._token_encoder:
-            return len(self._token_encoder.encode(text))
-        else:
-            # Rough estimation: 1 token ≈ 4 characters
-            return len(text) // 4
+        return self._operations.count_tokens_in_text(text)
     
     def get_context_summary(self) -> Dict[str, Any]:
         """Get summary of current context."""
