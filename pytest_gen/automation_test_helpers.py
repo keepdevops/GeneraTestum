@@ -9,6 +9,7 @@ from .auto_test_runner import AutoTestRunner
 from .auto_coverage_analyzer import AutoCoverageAnalyzer
 from .auto_refactoring import AutoRefactoringAnalyzer
 from .auto_performance_testing import AutoPerformanceTesting
+from .integration_helper_fix import analyze_integration_requirements
 
 
 def run_automated_tests(test_path: str, with_coverage: bool, timeout: int, output: str):
@@ -52,103 +53,68 @@ def analyze_coverage_gaps(source_path: str, test_path: str, min_coverage: int, o
     click.echo(f"Min coverage: {min_coverage}%")
     click.echo("")
     
-    # Analyze coverage
-    report = analyzer.analyze_coverage(source_path, test_path)
+    # Run coverage analysis
+    coverage_report = analyzer.analyze_coverage(source_path, test_path)
     
     # Generate and display report
-    coverage_report = analyzer.generate_coverage_report(report)
-    click.echo(coverage_report)
+    report = analyzer.generate_coverage_report(coverage_report)
+    click.echo(report)
     
-    # Generate missing test suggestions
-    if report.gaps:
-        click.echo("\n🔧 AUTO-GENERATE MISSING TESTS:")
-        test_suggestions = analyzer.auto_generate_missing_tests(report.gaps)
-        for suggestion in test_suggestions[:5]:  # Show first 5
-            click.echo(suggestion)
-    
-    # Save report if requested
+    # Save detailed report if requested
     if output:
         with open(output, 'w') as f:
-            f.write(coverage_report)
+            f.write(report)
         click.echo(f"\n📄 Coverage report saved to: {output}")
 
 
 def run_complete_analysis(source_path: str, test_path: str, min_coverage: int, 
                           auto_fix: bool, output_dir: str):
     """Run complete automated analysis with all features."""
-    click.echo("🚀 Running complete automated analysis...")
-    click.echo("=" * 60)
+    click.echo(f"🚀 Running complete automated analysis...")
+    click.echo(f"Source path: {source_path}")
+    click.echo(f"Test path: {test_path or 'Auto-detect'}")
+    click.echo(f"Min coverage: {min_coverage}%")
+    click.echo(f"Auto-fix: {'Enabled' if auto_fix else 'Disabled'}")
+    click.echo(f"Output directory: {output_dir}")
+    click.echo("")
     
-    # 1. Run tests
-    click.echo("\n1️⃣  Running automated test execution...")
-    runner = AutoTestRunner({'timeout': 300})
-    suite_result = runner.run_tests(test_path, with_coverage=True)
+    # Create output directory
+    os.makedirs(output_dir, exist_ok=True)
     
-    test_report = runner.generate_report(suite_result)
-    click.echo(test_report)
+    # Run test execution
+    test_output = os.path.join(output_dir, 'test_execution_report.txt')
+    run_automated_tests(test_path, with_coverage=True, timeout=300, output=test_output)
     
-    # 2. Analyze coverage
-    click.echo("\n2️⃣  Analyzing coverage gaps...")
-    analyzer = AutoCoverageAnalyzer({'min_coverage': min_coverage})
-    coverage_report = analyzer.analyze_coverage(source_path, test_path)
+    # Run coverage analysis
+    coverage_output = os.path.join(output_dir, 'coverage_analysis_report.txt')
+    analyze_coverage_gaps(source_path, test_path, min_coverage, coverage_output)
     
-    coverage_report_text = analyzer.generate_coverage_report(coverage_report)
-    click.echo(coverage_report_text)
-    
-    # 3. Generate missing tests if requested
-    if auto_fix and coverage_report.gaps:
-        click.echo("\n3️⃣  Auto-generating missing tests...")
+    # Run refactoring analysis if auto-fix is enabled
+    if auto_fix:
+        refactor_output = os.path.join(output_dir, 'refactoring_suggestions.txt')
+        analyze_refactoring_suggestions(test_path, refactor_output)
         
-        # Create output directory
-        os.makedirs(output_dir, exist_ok=True)
-        
+        # Generate additional tests for coverage gaps
+        coverage_report = analyzer.analyze_coverage(source_path, test_path)
         test_suggestions = analyzer.auto_generate_missing_tests(coverage_report.gaps)
         
-        for i, suggestion in enumerate(test_suggestions[:10]):  # Limit to 10
-            filename = f"auto_generated_test_{i+1}.py"
-            filepath = os.path.join(output_dir, filename)
-            
-            with open(filepath, 'w') as f:
-                f.write(suggestion)
-            
-            click.echo(f"  ✅ Generated: {filepath}")
-    
-    # 4. Generate smart mocks
-    click.echo("\n4️⃣  Generating smart mocks...")
-    from .smart_mock_generator import SmartMockGenerator
-    from .mock_models import MockConfig
-    
-    generator = SmartMockGenerator()
-    
-    # Analyze main source file
-    if os.path.isfile(source_path):
-        with open(source_path, 'r') as f:
-            code = f.read()
-        
-        dependencies = generator.analyze_dependencies(code, source_path)
-        
-        if dependencies:
-            mock_config = MockConfig(mock_type='intelligent')
-            mocks = generator.generate_smart_mocks(dependencies, mock_config)
-            
-            mock_file = os.path.join(output_dir, 'generated_mocks.py')
-            with open(mock_file, 'w') as f:
-                f.write("# Auto-generated Smart Mocks\n\n")
-                for dep_name, mock_code in mocks.items():
-                    f.write(f"# Mock for {dep_name}\n")
-                    f.write(mock_code)
-                    f.write("\n\n" + "="*50 + "\n\n")
-            
-            click.echo(f"  ✅ Generated mocks: {mock_file}")
+        if test_suggestions:
+            test_output_file = os.path.join(output_dir, 'suggested_tests.py')
+            with open(test_output_file, 'w') as f:
+                f.write("# Auto-generated test suggestions\n\n")
+                for suggestion in test_suggestions:
+                    f.write(suggestion)
+                    f.write("\n\n")
+            click.echo(f"📄 Suggested tests saved to: {test_output_file}")
     
     # Summary
-    click.echo("\n🎉 COMPLETE ANALYSIS SUMMARY:")
-    click.echo(f"  • Tests executed: {suite_result.total_tests}")
-    click.echo(f"  • Coverage: {coverage_report.total_coverage:.1f}%")
-    click.echo(f"  • Coverage gaps: {len(coverage_report.gaps)}")
+    click.echo(f"\n✅ Complete analysis finished!")
+    click.echo(f"📁 Reports saved to: {output_dir}")
+    click.echo(f"  • Test execution: test_execution_report.txt")
+    click.echo(f"  • Coverage analysis: coverage_analysis_report.txt")
     if auto_fix:
-        click.echo(f"  • Auto-generated tests: {len(test_suggestions) if 'test_suggestions' in locals() else 0}")
-    click.echo(f"  • Output directory: {output_dir}")
+        click.echo(f"  • Refactoring suggestions: refactoring_suggestions.txt")
+        click.echo(f"  • Suggested tests: suggested_tests.py")
 
 
 def analyze_refactoring_suggestions(test_path: str, output: str):

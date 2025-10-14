@@ -1,0 +1,609 @@
+============================================================
+🔗 AUTOMATIC INTEGRATION TEST GENERATION REPORT
+============================================================
+
+🎯 INTEGRATION TESTS GENERATED: 14
+
+🔄 WORKFLOW TESTS (7):
+  • test_create_then_get_workflow
+    Test create then get workflow
+  • test_create_then_update_workflow
+    Test create then update workflow
+  • test_create_then_delete_workflow
+    Test create then delete workflow
+  • test_create_then_get_workflow
+    Test create then get workflow
+  • test_create_then_delete_workflow
+    Test create then delete workflow
+  • test_create_then_get_workflow
+    Test create then get workflow
+  • test_create_then_get_workflow
+    Test create then get workflow
+
+📊 DATA FLOW TESTS (7):
+  • test_data_flow_post_api_users_to_get_api_users_user_id
+    Test data flow from POST /api/users to GET /api/users/{user_id}
+  • test_data_flow_post_api_users_to_put_api_users_user_id
+    Test data flow from POST /api/users to PUT /api/users/{user_id}
+  • test_data_flow_post_api_users_to_delete_api_users_user_id
+    Test data flow from POST /api/users to DELETE /api/users/{user_id}
+  • test_data_flow_get_api_users_user_id_to_put_api_users_user_id
+    Test data flow from GET /api/users/{user_id} to PUT /api/users/{user_id}
+  • test_data_flow_get_api_users_user_id_to_delete_api_users_user_id
+    Test data flow from GET /api/users/{user_id} to DELETE /api/users/{user_id}
+  • test_data_flow_put_api_users_user_id_to_delete_api_users_user_id
+    Test data flow from PUT /api/users/{user_id} to DELETE /api/users/{user_id}
+  • test_data_flow_post_api_posts_to_get_api_posts_post_id
+    Test data flow from POST /api/posts to GET /api/posts/{post_id}
+
+💡 RECOMMENDATIONS:
+  • Configure base URL and authentication for your API
+  • Add appropriate request data for each endpoint
+  • Customize assertions based on your API's behavior
+  • Run integration tests against a test environment
+
+============================================================
+GENERATED INTEGRATION TESTS
+============================================================
+
+# Test create then get workflow
+
+def test_create_then_get_workflow():
+    """Test create then get workflow."""
+    import requests
+    import pytest
+    
+    base_url = "http://localhost:5000"  # TODO: Configure base URL
+    
+    # Step 1: Execute source endpoint
+    source_response = requests.post(
+        f"{base_url}/api/users",
+        json={}  # TODO: Add appropriate request data
+    )
+    
+    assert source_response.status_code == 200, \
+        f"Source endpoint failed: {source_response.status_code}"
+    
+    source_data = source_response.json()
+    
+    # Step 2: Extract data for target endpoint
+    # TODO: Map source response data to target request data
+    target_data = {
+        # Example mapping based on relationship:
+        # "id": source_data.get("id"),
+        # "name": source_data.get("name")
+    }
+    
+    # Step 3: Execute target endpoint
+    target_response = requests.get(
+        f"{base_url}/api/users/{user_id}",
+        json=target_data
+    )
+    
+    assert target_response.status_code == 200, \
+        f"Target endpoint failed: {target_response.status_code}"
+    
+    target_result = target_response.json()
+    
+    # Step 4: Verify workflow completion
+    assert target_result is not None, "Workflow did not complete successfully"
+    
+    # TODO: Add specific assertions based on expected workflow outcome
+
+# Test create then update workflow
+
+def test_create_then_update_workflow():
+    """Test create then update workflow."""
+    import requests
+    import pytest
+    
+    base_url = "http://localhost:5000"  # TODO: Configure base URL
+    
+    # Step 1: Execute source endpoint
+    source_response = requests.post(
+        f"{base_url}/api/users",
+        json={}  # TODO: Add appropriate request data
+    )
+    
+    assert source_response.status_code == 200, \
+        f"Source endpoint failed: {source_response.status_code}"
+    
+    source_data = source_response.json()
+    
+    # Step 2: Extract data for target endpoint
+    # TODO: Map source response data to target request data
+    target_data = {
+        # Example mapping based on relationship:
+        # "id": source_data.get("id"),
+        # "name": source_data.get("name")
+    }
+    
+    # Step 3: Execute target endpoint
+    target_response = requests.put(
+        f"{base_url}/api/users/{user_id}",
+        json=target_data
+    )
+    
+    assert target_response.status_code == 200, \
+        f"Target endpoint failed: {target_response.status_code}"
+    
+    target_result = target_response.json()
+    
+    # Step 4: Verify workflow completion
+    assert target_result is not None, "Workflow did not complete successfully"
+    
+    # TODO: Add specific assertions based on expected workflow outcome
+
+# Test create then delete workflow
+
+def test_create_then_delete_workflow():
+    """Test create then delete workflow."""
+    import requests
+    import pytest
+    
+    base_url = "http://localhost:5000"  # TODO: Configure base URL
+    
+    # Step 1: Execute source endpoint
+    source_response = requests.post(
+        f"{base_url}/api/users",
+        json={}  # TODO: Add appropriate request data
+    )
+    
+    assert source_response.status_code == 200, \
+        f"Source endpoint failed: {source_response.status_code}"
+    
+    source_data = source_response.json()
+    
+    # Step 2: Extract data for target endpoint
+    # TODO: Map source response data to target request data
+    target_data = {
+        # Example mapping based on relationship:
+        # "id": source_data.get("id"),
+        # "name": source_data.get("name")
+    }
+    
+    # Step 3: Execute target endpoint
+    target_response = requests.delete(
+        f"{base_url}/api/users/{user_id}",
+        json=target_data
+    )
+    
+    assert target_response.status_code == 200, \
+        f"Target endpoint failed: {target_response.status_code}"
+    
+    target_result = target_response.json()
+    
+    # Step 4: Verify workflow completion
+    assert target_result is not None, "Workflow did not complete successfully"
+    
+    # TODO: Add specific assertions based on expected workflow outcome
+
+# Test create then get workflow
+
+def test_create_then_get_workflow():
+    """Test create then get workflow."""
+    import requests
+    import pytest
+    
+    base_url = "http://localhost:5000"  # TODO: Configure base URL
+    
+    # Step 1: Execute source endpoint
+    source_response = requests.post(
+        f"{base_url}/api/users",
+        json={}  # TODO: Add appropriate request data
+    )
+    
+    assert source_response.status_code == 200, \
+        f"Source endpoint failed: {source_response.status_code}"
+    
+    source_data = source_response.json()
+    
+    # Step 2: Extract data for target endpoint
+    # TODO: Map source response data to target request data
+    target_data = {
+        # Example mapping based on relationship:
+        # "id": source_data.get("id"),
+        # "name": source_data.get("name")
+    }
+    
+    # Step 3: Execute target endpoint
+    target_response = requests.get(
+        f"{base_url}/api/posts/{post_id}",
+        json=target_data
+    )
+    
+    assert target_response.status_code == 200, \
+        f"Target endpoint failed: {target_response.status_code}"
+    
+    target_result = target_response.json()
+    
+    # Step 4: Verify workflow completion
+    assert target_result is not None, "Workflow did not complete successfully"
+    
+    # TODO: Add specific assertions based on expected workflow outcome
+
+# Test create then delete workflow
+
+def test_create_then_delete_workflow():
+    """Test create then delete workflow."""
+    import requests
+    import pytest
+    
+    base_url = "http://localhost:5000"  # TODO: Configure base URL
+    
+    # Step 1: Execute source endpoint
+    source_response = requests.put(
+        f"{base_url}/api/users/{user_id}",
+        json={}  # TODO: Add appropriate request data
+    )
+    
+    assert source_response.status_code == 200, \
+        f"Source endpoint failed: {source_response.status_code}"
+    
+    source_data = source_response.json()
+    
+    # Step 2: Extract data for target endpoint
+    # TODO: Map source response data to target request data
+    target_data = {
+        # Example mapping based on relationship:
+        # "id": source_data.get("id"),
+        # "name": source_data.get("name")
+    }
+    
+    # Step 3: Execute target endpoint
+    target_response = requests.delete(
+        f"{base_url}/api/users/{user_id}",
+        json=target_data
+    )
+    
+    assert target_response.status_code == 200, \
+        f"Target endpoint failed: {target_response.status_code}"
+    
+    target_result = target_response.json()
+    
+    # Step 4: Verify workflow completion
+    assert target_result is not None, "Workflow did not complete successfully"
+    
+    # TODO: Add specific assertions based on expected workflow outcome
+
+# Test create then get workflow
+
+def test_create_then_get_workflow():
+    """Test create then get workflow."""
+    import requests
+    import pytest
+    
+    base_url = "http://localhost:5000"  # TODO: Configure base URL
+    
+    # Step 1: Execute source endpoint
+    source_response = requests.put(
+        f"{base_url}/api/users/{user_id}",
+        json={}  # TODO: Add appropriate request data
+    )
+    
+    assert source_response.status_code == 200, \
+        f"Source endpoint failed: {source_response.status_code}"
+    
+    source_data = source_response.json()
+    
+    # Step 2: Extract data for target endpoint
+    # TODO: Map source response data to target request data
+    target_data = {
+        # Example mapping based on relationship:
+        # "id": source_data.get("id"),
+        # "name": source_data.get("name")
+    }
+    
+    # Step 3: Execute target endpoint
+    target_response = requests.get(
+        f"{base_url}/api/posts/{post_id}",
+        json=target_data
+    )
+    
+    assert target_response.status_code == 200, \
+        f"Target endpoint failed: {target_response.status_code}"
+    
+    target_result = target_response.json()
+    
+    # Step 4: Verify workflow completion
+    assert target_result is not None, "Workflow did not complete successfully"
+    
+    # TODO: Add specific assertions based on expected workflow outcome
+
+# Test create then get workflow
+
+def test_create_then_get_workflow():
+    """Test create then get workflow."""
+    import requests
+    import pytest
+    
+    base_url = "http://localhost:5000"  # TODO: Configure base URL
+    
+    # Step 1: Execute source endpoint
+    source_response = requests.post(
+        f"{base_url}/api/posts",
+        json={}  # TODO: Add appropriate request data
+    )
+    
+    assert source_response.status_code == 200, \
+        f"Source endpoint failed: {source_response.status_code}"
+    
+    source_data = source_response.json()
+    
+    # Step 2: Extract data for target endpoint
+    # TODO: Map source response data to target request data
+    target_data = {
+        # Example mapping based on relationship:
+        # "id": source_data.get("id"),
+        # "name": source_data.get("name")
+    }
+    
+    # Step 3: Execute target endpoint
+    target_response = requests.get(
+        f"{base_url}/api/posts/{post_id}",
+        json=target_data
+    )
+    
+    assert target_response.status_code == 200, \
+        f"Target endpoint failed: {target_response.status_code}"
+    
+    target_result = target_response.json()
+    
+    # Step 4: Verify workflow completion
+    assert target_result is not None, "Workflow did not complete successfully"
+    
+    # TODO: Add specific assertions based on expected workflow outcome
+
+# Test data flow from POST /api/users to GET /api/users/{user_id}
+
+def test_data_flow_post_api_users_to_get_api_users_user_id():
+    """Test data flow from POST /api/users to GET /api/users/{user_id}."""
+    import requests
+    import pytest
+    
+    base_url = "http://localhost:5000"  # TODO: Configure base URL
+    
+    # Execute source endpoint to get data
+    source_response = requests.get(f"{base_url}/api/users")
+    assert source_response.status_code == 200
+    
+    source_data = source_response.json()
+    
+    # Verify data structure
+    assert isinstance(source_data, dict), "Source data should be a dictionary"
+    
+    # Map data to target endpoint format
+    target_data = {}
+        target_data["name"] = source_data.get("name")
+    target_data["email"] = source_data.get("email")
+    
+    # Execute target endpoint with mapped data
+    target_response = requests.post(
+        f"{base_url}/api/users/{user_id}",
+        json=target_data
+    )
+    
+    assert target_response.status_code in [200, 201], \
+        f"Target endpoint failed: {target_response.status_code}"
+    
+    # Verify data flow success
+    target_result = target_response.json()
+    assert target_result is not None
+
+# Test data flow from POST /api/users to PUT /api/users/{user_id}
+
+def test_data_flow_post_api_users_to_put_api_users_user_id():
+    """Test data flow from POST /api/users to PUT /api/users/{user_id}."""
+    import requests
+    import pytest
+    
+    base_url = "http://localhost:5000"  # TODO: Configure base URL
+    
+    # Execute source endpoint to get data
+    source_response = requests.get(f"{base_url}/api/users")
+    assert source_response.status_code == 200
+    
+    source_data = source_response.json()
+    
+    # Verify data structure
+    assert isinstance(source_data, dict), "Source data should be a dictionary"
+    
+    # Map data to target endpoint format
+    target_data = {}
+        target_data["name"] = source_data.get("name")
+    target_data["email"] = source_data.get("email")
+    
+    # Execute target endpoint with mapped data
+    target_response = requests.post(
+        f"{base_url}/api/users/{user_id}",
+        json=target_data
+    )
+    
+    assert target_response.status_code in [200, 201], \
+        f"Target endpoint failed: {target_response.status_code}"
+    
+    # Verify data flow success
+    target_result = target_response.json()
+    assert target_result is not None
+
+# Test data flow from POST /api/users to DELETE /api/users/{user_id}
+
+def test_data_flow_post_api_users_to_delete_api_users_user_id():
+    """Test data flow from POST /api/users to DELETE /api/users/{user_id}."""
+    import requests
+    import pytest
+    
+    base_url = "http://localhost:5000"  # TODO: Configure base URL
+    
+    # Execute source endpoint to get data
+    source_response = requests.get(f"{base_url}/api/users")
+    assert source_response.status_code == 200
+    
+    source_data = source_response.json()
+    
+    # Verify data structure
+    assert isinstance(source_data, dict), "Source data should be a dictionary"
+    
+    # Map data to target endpoint format
+    target_data = {}
+        target_data["name"] = source_data.get("name")
+    target_data["email"] = source_data.get("email")
+    
+    # Execute target endpoint with mapped data
+    target_response = requests.post(
+        f"{base_url}/api/users/{user_id}",
+        json=target_data
+    )
+    
+    assert target_response.status_code in [200, 201], \
+        f"Target endpoint failed: {target_response.status_code}"
+    
+    # Verify data flow success
+    target_result = target_response.json()
+    assert target_result is not None
+
+# Test data flow from GET /api/users/{user_id} to PUT /api/users/{user_id}
+
+def test_data_flow_get_api_users_user_id_to_put_api_users_user_id():
+    """Test data flow from GET /api/users/{user_id} to PUT /api/users/{user_id}."""
+    import requests
+    import pytest
+    
+    base_url = "http://localhost:5000"  # TODO: Configure base URL
+    
+    # Execute source endpoint to get data
+    source_response = requests.get(f"{base_url}/api/users/{user_id}")
+    assert source_response.status_code == 200
+    
+    source_data = source_response.json()
+    
+    # Verify data structure
+    assert isinstance(source_data, dict), "Source data should be a dictionary"
+    
+    # Map data to target endpoint format
+    target_data = {}
+        target_data["name"] = source_data.get("name")
+    target_data["email"] = source_data.get("email")
+    
+    # Execute target endpoint with mapped data
+    target_response = requests.post(
+        f"{base_url}/api/users/{user_id}",
+        json=target_data
+    )
+    
+    assert target_response.status_code in [200, 201], \
+        f"Target endpoint failed: {target_response.status_code}"
+    
+    # Verify data flow success
+    target_result = target_response.json()
+    assert target_result is not None
+
+# Test data flow from GET /api/users/{user_id} to DELETE /api/users/{user_id}
+
+def test_data_flow_get_api_users_user_id_to_delete_api_users_user_id():
+    """Test data flow from GET /api/users/{user_id} to DELETE /api/users/{user_id}."""
+    import requests
+    import pytest
+    
+    base_url = "http://localhost:5000"  # TODO: Configure base URL
+    
+    # Execute source endpoint to get data
+    source_response = requests.get(f"{base_url}/api/users/{user_id}")
+    assert source_response.status_code == 200
+    
+    source_data = source_response.json()
+    
+    # Verify data structure
+    assert isinstance(source_data, dict), "Source data should be a dictionary"
+    
+    # Map data to target endpoint format
+    target_data = {}
+        target_data["name"] = source_data.get("name")
+    target_data["email"] = source_data.get("email")
+    
+    # Execute target endpoint with mapped data
+    target_response = requests.post(
+        f"{base_url}/api/users/{user_id}",
+        json=target_data
+    )
+    
+    assert target_response.status_code in [200, 201], \
+        f"Target endpoint failed: {target_response.status_code}"
+    
+    # Verify data flow success
+    target_result = target_response.json()
+    assert target_result is not None
+
+# Test data flow from PUT /api/users/{user_id} to DELETE /api/users/{user_id}
+
+def test_data_flow_put_api_users_user_id_to_delete_api_users_user_id():
+    """Test data flow from PUT /api/users/{user_id} to DELETE /api/users/{user_id}."""
+    import requests
+    import pytest
+    
+    base_url = "http://localhost:5000"  # TODO: Configure base URL
+    
+    # Execute source endpoint to get data
+    source_response = requests.get(f"{base_url}/api/users/{user_id}")
+    assert source_response.status_code == 200
+    
+    source_data = source_response.json()
+    
+    # Verify data structure
+    assert isinstance(source_data, dict), "Source data should be a dictionary"
+    
+    # Map data to target endpoint format
+    target_data = {}
+        target_data["name"] = source_data.get("name")
+    target_data["email"] = source_data.get("email")
+    
+    # Execute target endpoint with mapped data
+    target_response = requests.post(
+        f"{base_url}/api/users/{user_id}",
+        json=target_data
+    )
+    
+    assert target_response.status_code in [200, 201], \
+        f"Target endpoint failed: {target_response.status_code}"
+    
+    # Verify data flow success
+    target_result = target_response.json()
+    assert target_result is not None
+
+# Test data flow from POST /api/posts to GET /api/posts/{post_id}
+
+def test_data_flow_post_api_posts_to_get_api_posts_post_id():
+    """Test data flow from POST /api/posts to GET /api/posts/{post_id}."""
+    import requests
+    import pytest
+    
+    base_url = "http://localhost:5000"  # TODO: Configure base URL
+    
+    # Execute source endpoint to get data
+    source_response = requests.get(f"{base_url}/api/posts")
+    assert source_response.status_code == 200
+    
+    source_data = source_response.json()
+    
+    # Verify data structure
+    assert isinstance(source_data, dict), "Source data should be a dictionary"
+    
+    # Map data to target endpoint format
+    target_data = {}
+        target_data["user_id"] = source_data.get("id")
+    target_data["title"] = source_data.get("title")
+    target_data["content"] = source_data.get("content")
+    target_data["user_id"] = source_data.get("user_id")
+    
+    # Execute target endpoint with mapped data
+    target_response = requests.post(
+        f"{base_url}/api/posts/{post_id}",
+        json=target_data
+    )
+    
+    assert target_response.status_code in [200, 201], \
+        f"Target endpoint failed: {target_response.status_code}"
+    
+    # Verify data flow success
+    target_result = target_response.json()
+    assert target_result is not None
