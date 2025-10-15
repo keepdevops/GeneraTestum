@@ -1,269 +1,173 @@
 """
-README documentation generator.
+README generator - refactored for 200LOC limit.
 """
 
 from typing import Dict, Any
 from .doc_models import TestDocumentation
+from .readme_template_sections import ReadmeTemplateSections
+from .readme_config_sections import ReadmeConfigSections
 
 
 class ReadmeGenerator:
     """Generates comprehensive project README documentation."""
 
+    def __init__(self):
+        self.template_sections = ReadmeTemplateSections()
+        self.config_sections = ReadmeConfigSections()
+
     def generate_project_readme(self, project_info: Dict[str, Any]) -> TestDocumentation:
         """Generate comprehensive project README."""
-        content = f"""# {project_info.get('name', 'Test Generator Project')}
+        content = f"""{self.template_sections.get_header_section(project_info)}
 
-## 📋 Overview
+{self.template_sections.get_project_structure_section(project_info)}
 
-{project_info.get('description', 'Automatically generated test suite with comprehensive coverage.')}
+{self.template_sections.get_installation_section(project_info)}
 
-## 🚀 Features
+{self.template_sections.get_testing_section()}
 
-- **Automated Test Generation**: Generate comprehensive test suites for Python and Java code
-- **Multi-Language Support**: Python (pytest) and Java (JUnit 5) test generation
-- **API Testing**: Automatic API endpoint testing with mock generation
-- **Security Testing**: Comprehensive security vulnerability testing
-- **Performance Testing**: Performance and load testing capabilities
-- **Integration Testing**: End-to-end workflow testing
-- **Coverage Analysis**: Detailed code coverage reporting
-- **Mock Generation**: Intelligent mock object generation
-- **CI/CD Integration**: Ready-to-use CI/CD pipeline configurations
+{self.template_sections.get_coverage_section()}
 
-## 📁 Project Structure
+{self.config_sections.get_configuration_section()}
 
-```
-{project_info.get('name', 'project')}/
-├── src/                    # Source code
-├── tests/                  # Test files
-│   ├── unit/              # Unit tests
-│   ├── integration/       # Integration tests
-│   └── e2e/               # End-to-end tests
-├── docs/                  # Documentation
-├── scripts/               # Build and deployment scripts
-├── requirements.txt       # Python dependencies
-├── setup.py              # Package configuration
-├── README.md             # This file
-└── .github/              # GitHub workflows
-    └── workflows/
-        └── ci.yml        # CI/CD pipeline
-```
+{self.config_sections.get_development_section()}
 
-## 🛠️ Installation
+{self.config_sections.get_contributing_section(project_info)}
 
-### Prerequisites
-
-- Python {project_info.get('python_version', '3.9')}+
-- pip
-- Git
-
-### Setup
-
-1. **Clone the repository**:
-   ```bash
-   git clone {project_info.get('repository', 'https://github.com/your-org/your-project.git')}
-   cd {project_info.get('name', 'project')}
-   ```
-
-2. **Create a virtual environment**:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\\Scripts\\activate
-   ```
-
-3. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Install the package in development mode**:
-   ```bash
-   pip install -e .
-   ```
-
-## 🧪 Running Tests
-
-### Run All Tests
-```bash
-pytest
-```
-
-### Run Tests with Coverage
-```bash
-pytest --cov=src --cov-report=html --cov-report=term
-```
-
-### Run Specific Test Types
-```bash
-# Unit tests only
-pytest tests/unit/
-
-# Integration tests only
-pytest tests/integration/
-
-# End-to-end tests only
-pytest tests/e2e/
-```
-
-### Run Tests with Different Verbosity
-```bash
-# Verbose output
-pytest -v
-
-# Extra verbose with print statements
-pytest -s
-
-# Show local variables in tracebacks
-pytest -l
-```
-
-## 📊 Coverage Reports
-
-After running tests with coverage, you can view detailed reports:
-
-- **HTML Report**: Open `htmlcov/index.html` in your browser
-- **Terminal Report**: Coverage summary displayed in terminal
-- **XML Report**: Available for CI/CD integration
-
-### Coverage Targets
-
-- **Minimum**: 80% overall coverage
-- **Recommended**: 90% overall coverage
-- **Excellent**: 95% overall coverage
-
-## 🔧 Configuration
-
-### pytest Configuration
-
-Create `pytest.ini` in your project root:
-
-```ini
-[tool:pytest]
-testpaths = tests
-python_files = test_*.py
-python_classes = Test*
-python_functions = test_*
-addopts = 
-    --strict-markers
-    --strict-config
-    --cov=src
-    --cov-report=term-missing
-    --cov-report=html
-    --cov-fail-under=80
-markers =
-    slow: marks tests as slow (deselect with '-m "not slow"')
-    integration: marks tests as integration tests
-    e2e: marks tests as end-to-end tests
-```
-
-### Coverage Configuration
-
-Create `.coveragerc`:
-
-```ini
-[run]
-source = src
-omit = 
-    */tests/*
-    */venv/*
-    */migrations/*
-
-[report]
-exclude_lines =
-    pragma: no cover
-    def __repr__
-    raise AssertionError
-    raise NotImplementedError
-```
-
-## 🚀 Development
-
-### Code Style
-
-This project follows PEP 8 style guidelines. Use the provided tools:
-
-```bash
-# Format code
-black src/ tests/
-
-# Check code style
-flake8 src/ tests/
-
-# Type checking
-mypy src/
-```
-
-### Pre-commit Hooks
-
-Install pre-commit hooks:
-
-```bash
-pip install pre-commit
-pre-commit install
-```
-
-### Adding New Tests
-
-1. **Unit Tests**: Add to `tests/unit/`
-2. **Integration Tests**: Add to `tests/integration/`
-3. **End-to-End Tests**: Add to `tests/e2e/`
-
-Follow the naming convention: `test_<module_name>.py`
-
-## 📚 API Documentation
-
-For detailed API documentation, see:
-- [API Reference](docs/API.md)
-- [Test Guide](docs/TEST_GUIDE.md)
-- [Coverage Report](docs/COVERAGE_REPORT.md)
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Add tests for your changes
-5. Ensure all tests pass (`pytest`)
-6. Commit your changes (`git commit -m 'Add amazing feature'`)
-7. Push to the branch (`git push origin feature/amazing-feature`)
-8. Open a Pull Request
-
-### Development Guidelines
-
-- Write tests for all new functionality
-- Maintain test coverage above 80%
-- Follow PEP 8 style guidelines
-- Update documentation as needed
-- Add type hints to new code
-
-## 📄 License
-
-This project is licensed under the {project_info.get('license', 'MIT')} License - see the [LICENSE](LICENSE) file for details.
-
-## 👥 Authors
-
-- **{project_info.get('author', 'Your Name')}** - *Initial work* - [{project_info.get('email', 'your.email@example.com')}](mailto:{project_info.get('email', 'your.email@example.com')})
-
-## 🙏 Acknowledgments
-
-- Thanks to the pytest community for the excellent testing framework
-- Thanks to all contributors who help improve this project
-- Inspired by modern testing practices and CI/CD best practices
-
-## 📞 Support
-
-- **Issues**: [GitHub Issues]({project_info.get('repository', 'https://github.com/your-org/your-project')}/issues)
-- **Discussions**: [GitHub Discussions]({project_info.get('repository', 'https://github.com/your-org/your-project')}/discussions)
-- **Email**: {project_info.get('email', 'support@example.com')}
-
----
-
-**Last Updated**: {project_info.get('last_updated', '2024-01-01')}
-**Version**: {project_info.get('version', '1.0.0')}
+{self.config_sections.get_footer_section(project_info)}
 """
 
         return TestDocumentation(
             title="README",
             content=content,
+            file_path="README.md",
+            doc_type="readme"
+        )
+
+    def generate_minimal_readme(self, project_info: Dict[str, Any]) -> TestDocumentation:
+        """Generate a minimal README."""
+        content = f"""# {project_info.get('name', 'Project')}
+
+{project_info.get('description', 'A Python project with automated testing.')}
+
+## Installation
+
+```bash
+pip install -r requirements.txt
+```
+
+## Running Tests
+
+```bash
+pytest
+```
+
+## License
+
+{project_info.get('license', 'MIT')}
+"""
+
+        return TestDocumentation(
+            title="README",
+            content=content,
+            file_path="README.md",
+            doc_type="readme"
+        )
+
+    def generate_readme_section(self, section_name: str, project_info: Dict[str, Any]) -> str:
+        """Generate a specific README section."""
+        section_generators = {
+            'header': self.template_sections.get_header_section,
+            'structure': self.template_sections.get_project_structure_section,
+            'installation': self.template_sections.get_installation_section,
+            'testing': self.template_sections.get_testing_section,
+            'coverage': self.template_sections.get_coverage_section,
+            'configuration': self.config_sections.get_configuration_section,
+            'development': self.config_sections.get_development_section,
+            'contributing': self.config_sections.get_contributing_section,
+            'footer': self.config_sections.get_footer_section
+        }
+        
+        generator = section_generators.get(section_name)
+        if generator:
+            return generator(project_info)
+        else:
+            return f"# {section_name.title()}\n\nSection not found."
+
+    def generate_custom_readme(self, project_info: Dict[str, Any], sections: list) -> TestDocumentation:
+        """Generate README with custom sections."""
+        content_parts = []
+        
+        for section in sections:
+            section_content = self.generate_readme_section(section, project_info)
+            content_parts.append(section_content)
+        
+        content = "\n\n".join(content_parts)
+        
+        return TestDocumentation(
+            title="README",
+            content=content,
+            file_path="README.md",
+            doc_type="readme"
+        )
+
+    def get_readme_template_variables(self, project_info: Dict[str, Any]) -> Dict[str, str]:
+        """Get template variables for README generation."""
+        return {
+            'project_name': project_info.get('name', 'Test Generator Project'),
+            'description': project_info.get('description', 'Automatically generated test suite'),
+            'python_version': project_info.get('python_version', '3.9'),
+            'repository': project_info.get('repository', 'https://github.com/your-org/your-project.git'),
+            'author': project_info.get('author', 'Your Name'),
+            'email': project_info.get('email', 'your.email@example.com'),
+            'license': project_info.get('license', 'MIT'),
+            'version': project_info.get('version', '1.0.0'),
+            'last_updated': project_info.get('last_updated', '2024-01-01')
+        }
+
+    def validate_project_info(self, project_info: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate and set default values for project info."""
+        defaults = {
+            'name': 'Test Generator Project',
+            'description': 'Automatically generated test suite with comprehensive coverage.',
+            'python_version': '3.9',
+            'repository': 'https://github.com/your-org/your-project.git',
+            'author': 'Your Name',
+            'email': 'your.email@example.com',
+            'license': 'MIT',
+            'version': '1.0.0',
+            'last_updated': '2024-01-01'
+        }
+        
+        validated_info = defaults.copy()
+        validated_info.update(project_info)
+        
+        return validated_info
+
+    def generate_readme_with_custom_sections(self, project_info: Dict[str, Any], 
+                                           custom_sections: Dict[str, str]) -> TestDocumentation:
+        """Generate README with additional custom sections."""
+        # Generate base README
+        base_readme = self.generate_project_readme(project_info)
+        
+        # Add custom sections
+        custom_content = []
+        for section_name, section_content in custom_sections.items():
+            custom_content.append(f"## {section_name}\n\n{section_content}")
+        
+        # Insert custom sections before footer
+        content = base_readme.content
+        footer_start = content.find("## 📚 API Documentation")
+        
+        if footer_start != -1:
+            before_footer = content[:footer_start]
+            after_footer = content[footer_start:]
+            full_content = before_footer + "\n\n" + "\n\n".join(custom_content) + "\n\n" + after_footer
+        else:
+            full_content = content + "\n\n" + "\n\n".join(custom_content)
+        
+        return TestDocumentation(
+            title="README",
+            content=full_content,
             file_path="README.md",
             doc_type="readme"
         )

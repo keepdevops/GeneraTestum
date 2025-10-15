@@ -1,20 +1,17 @@
 """
-Integration test generator.
+Integration test generator - refactored for 200LOC limit.
 """
 
 from typing import Dict, List, Any
 from .integration_test_models import IntegrationTest, IntegrationTestSuite, APIRelationship, WorkflowStep
+from .integration_test_templates import IntegrationTestTemplates
 
 
 class IntegrationTestGenerator:
     """Generates integration tests based on API relationships."""
 
     def __init__(self):
-        self.test_templates = {
-            'workflow': self._generate_workflow_test,
-            'data_flow': self._generate_data_flow_test,
-            'dependency': self._generate_dependency_test
-        }
+        self.templates = IntegrationTestTemplates()
 
     def generate_integration_tests(self, relationships: List[APIRelationship], 
                                  workflows: List[List[WorkflowStep]]) -> IntegrationTestSuite:
@@ -23,7 +20,7 @@ class IntegrationTestGenerator:
         
         # Generate tests for workflows
         for i, workflow in enumerate(workflows):
-            test = self._generate_workflow_test(workflow, i)
+            test = self.templates.generate_workflow_test(workflow, i)
             if test:
                 tests.append(test)
         
@@ -38,7 +35,7 @@ class IntegrationTestGenerator:
         
         # Calculate coverage
         endpoints_covered = self._calculate_endpoint_coverage(tests)
-        coverage_percentage = len(endpoints_covered) / len(set().union(*[t.endpoints for t in tests])) * 100 if tests else 0
+        coverage_percentage = self._calculate_coverage_percentage(tests, endpoints_covered)
         
         return IntegrationTestSuite(
             tests=tests,
@@ -48,281 +45,125 @@ class IntegrationTestGenerator:
             coverage_percentage=coverage_percentage
         )
 
-    def _generate_workflow_test(self, workflow: List[WorkflowStep], index: int) -> IntegrationTest:
-        """Generate a workflow integration test."""
-        if not workflow:
-            return None
-        
-        test_name = f"test_integration_workflow_{index + 1}"
-        endpoints = [f"{step.endpoint.method} {step.endpoint.path}" for step in workflow]
-        
-        test_code = f'''def {test_name}():
-    \"\"\"Integration test for workflow: {' -> '.join(endpoints)}\"\"\"
-    import pytest
-    import requests
-    
-    base_url = "http://localhost:8000"
-    session_data = {{}}
-    
-    # Step 1: {workflow[0].endpoint.method} {workflow[0].endpoint.path}'''
-        
-        # Generate steps
-        for i, step in enumerate(workflow):
-            if i == 0:
-                # First step - create initial data
-                test_code += f'''
-    
-    # Create initial data
-    response1 = requests.{step.endpoint.method.lower()}(
-        f"{{base_url}}{step.endpoint.path}",
-        json={{test_data}}
-    )
-    assert response1.status_code == {step.expected_status}
-    
-    # Extract data for next step'''
-                
-                # Add data extraction
-                if step.data_extraction:
-                    for source_field, target_field in step.data_extraction.items():
-                        test_code += f'''
-    session_data["{target_field}"] = response1.json().get("{source_field}")'''
-            else:
-                # Subsequent steps
-                test_code += f'''
-    
-    # Step {i + 1}: {step.endpoint.method} {step.endpoint.path}
-    response{i + 1} = requests.{step.endpoint.method.lower()}(
-        f"{{base_url}}{step.endpoint.path}",
-        json={{session_data}}
-    )
-    assert response{i + 1}.status_code == {step.expected_status}'''
-        
-        # Add final assertions
-        test_code += f'''
-    
-    # Verify workflow completion
-    assert all([response1.status_code == 200, response{len(workflow)}.status_code == 200])
-'''
-        
-        return IntegrationTest(
-            test_name=test_name,
-            test_description=f"Integration test for workflow: {' -> '.join(endpoints)}",
-            test_code=test_code,
-            endpoints=endpoints,
-            test_type='workflow'
-        )
-
-    def _generate_data_flow_test(self, relationship: APIRelationship) -> IntegrationTest:
-        """Generate a data flow integration test."""
-        test_name = f"test_data_flow_{relationship.source_endpoint.replace(' ', '_').replace('/', '_')}_to_{relationship.target_endpoint.replace(' ', '_').replace('/', '_')}"
-        
-        test_code = f'''def {test_name}():
-    \"\"\"Test data flow from {relationship.source_endpoint} to {relationship.target_endpoint}.\"\"\"
-    import pytest
-    import requests
-    
-    base_url = "http://localhost:8000"
-    
-    # Step 1: Call source endpoint
-    source_response = requests.{relationship.source_endpoint.split()[0].lower()}(
-        f"{{base_url}}{relationship.source_endpoint.split()[1] if len(relationship.source_endpoint.split()) > 1 else '/'}",
-        json={{test_data}}
-    )
-    assert source_response.status_code == 200
-    
-    # Extract data from source response'''
-        
-        # Add data extraction
-        if relationship.data_flow:
-            for source_field, target_field in relationship.data_flow.items():
-                test_code += f'''
-    {target_field} = source_response.json().get("{source_field}")'''
-        
-        test_code += f'''
-    
-    # Step 2: Call target endpoint with extracted data
-    target_data = {{}}'''
-        
-        # Add data mapping
-        if relationship.data_flow:
-            for source_field, target_field in relationship.data_flow.items():
-                test_code += f'''
-    target_data["{target_field}"] = {target_field}'''
-        
-        test_code += f'''
-    
-    target_response = requests.{relationship.target_endpoint.split()[0].lower()}(
-        f"{{base_url}}{relationship.target_endpoint.split()[1] if len(relationship.target_endpoint.split()) > 1 else '/'}",
-        json=target_data
-    )
-    assert target_response.status_code == 200
-    
-    # Verify data flow
-    assert target_response.json() is not None
-'''
-        
-        return IntegrationTest(
-            test_name=test_name,
-            test_description=f"Data flow test: {relationship.source_endpoint} -> {relationship.target_endpoint}",
-            test_code=test_code,
-            endpoints=[relationship.source_endpoint, relationship.target_endpoint],
-            test_type='data_flow'
-        )
-
-    def _generate_dependency_test(self, relationship: APIRelationship) -> IntegrationTest:
-        """Generate a dependency integration test."""
-        test_name = f"test_dependency_{relationship.source_endpoint.replace(' ', '_').replace('/', '_')}_depends_on_{relationship.target_endpoint.replace(' ', '_').replace('/', '_')}"
-        
-        test_code = f'''def {test_name}():
-    \"\"\"Test dependency: {relationship.source_endpoint} depends on {relationship.target_endpoint}.\"\"\"
-    import pytest
-    import requests
-    
-    base_url = "http://localhost:8000"
-    
-    # Test that source endpoint fails without dependency
-    try:
-        source_response = requests.{relationship.source_endpoint.split()[0].lower()}(
-            f"{{base_url}}{relationship.source_endpoint.split()[1] if len(relationship.source_endpoint.split()) > 1 else '/'}",
-            json={{test_data}}
-        )
-        # If it succeeds without dependency, that's unexpected
-        assert source_response.status_code in [400, 404, 422]
-    except requests.exceptions.RequestException:
-        # Expected to fail without dependency
-        pass
-    
-    # Step 1: Setup dependency
-    dependency_response = requests.{relationship.target_endpoint.split()[0].lower()}(
-        f"{{base_url}}{relationship.target_endpoint.split()[1] if len(relationship.target_endpoint.split()) > 1 else '/'}",
-        json={{dependency_data}}
-    )
-    assert dependency_response.status_code in [200, 201]
-    
-    # Extract dependency data'''
-        
-        # Add dependency data extraction
-        if relationship.data_flow:
-            for source_field, target_field in relationship.data_flow.items():
-                test_code += f'''
-    {target_field} = dependency_response.json().get("{source_field}")'''
-        
-        test_code += f'''
-    
-    # Step 2: Test source endpoint with dependency
-    source_data = {{}}'''
-        
-        # Add dependency data mapping
-        if relationship.data_flow:
-            for source_field, target_field in relationship.data_flow.items():
-                test_code += f'''
-    source_data["{target_field}"] = {target_field}'''
-        
-        test_code += f'''
-    
-    source_response = requests.{relationship.source_endpoint.split()[0].lower()}(
-        f"{{base_url}}{relationship.source_endpoint.split()[1] if len(relationship.source_endpoint.split()) > 1 else '/'}",
-        json=source_data
-    )
-    assert source_response.status_code == 200
-    
-    # Verify dependency is satisfied
-    assert source_response.json() is not None
-'''
-        
-        return IntegrationTest(
-            test_name=test_name,
-            test_description=f"Dependency test: {relationship.source_endpoint} depends on {relationship.target_endpoint}",
-            test_code=test_code,
-            endpoints=[relationship.source_endpoint, relationship.target_endpoint],
-            test_type='dependency'
-        )
-
     def _generate_relationship_test(self, relationship: APIRelationship) -> IntegrationTest:
-        """Generate a test for a specific relationship."""
-        if relationship.relationship_type == 'data_flow':
-            return self._generate_data_flow_test(relationship)
-        elif relationship.relationship_type == 'dependency':
-            return self._generate_dependency_test(relationship)
+        """Generate test for a specific relationship."""
+        if relationship.relationship_type == "data_flow":
+            return self.templates.generate_data_flow_test(relationship)
+        elif relationship.relationship_type == "dependency":
+            return self.templates.generate_dependency_test(relationship)
         else:
-            # Default to workflow test
-            return self._generate_workflow_test_from_relationship(relationship)
+            return self._generate_generic_relationship_test(relationship)
 
-    def _generate_workflow_test_from_relationship(self, relationship: APIRelationship) -> IntegrationTest:
-        """Generate a workflow test from a relationship."""
-        test_name = f"test_workflow_{relationship.source_endpoint.replace(' ', '_').replace('/', '_')}_to_{relationship.target_endpoint.replace(' ', '_').replace('/', '_')}"
+    def _generate_generic_relationship_test(self, relationship: APIRelationship) -> IntegrationTest:
+        """Generate generic relationship test."""
+        test_name = f"test_relationship_{relationship.source_endpoint.name}_{relationship.target_endpoint.name}"
         
-        test_code = f'''def {test_name}():
-    \"\"\"Test workflow: {relationship.source_endpoint} -> {relationship.target_endpoint}.\"\"\"
-    import pytest
-    import requests
+        test_content = f'''def {test_name}():
+    """Test relationship: {relationship.relationship_type}"""
+    # Setup
+    source_data = {{'id': 'test_123'}}
     
-    base_url = "http://localhost:8000"
-    
-    # Step 1: Execute source endpoint
-    source_response = requests.{relationship.source_endpoint.split()[0].lower()}(
-        f"{{base_url}}{relationship.source_endpoint.split()[1] if len(relationship.source_endpoint.split()) > 1 else '/'}",
-        json={{test_data}}
-    )
+    # Execute source endpoint
+    source_response = {relationship.source_endpoint.name}(source_data)
     assert source_response.status_code == 200
     
-    # Step 2: Execute target endpoint
-    target_response = requests.{relationship.target_endpoint.split()[0].lower()}(
-        f"{{base_url}}{relationship.target_endpoint.split()[1] if len(relationship.target_endpoint.split()) > 1 else '/'}",
-        json={{test_data}}
-    )
+    # Execute target endpoint
+    target_response = {relationship.target_endpoint.name}(source_response.data)
     assert target_response.status_code == 200
     
-    # Verify workflow completion
-    assert source_response.json() is not None
-    assert target_response.json() is not None
-'''
+    # Verify relationship
+    assert target_response.data['source_id'] == source_response.data['id']'''
         
         return IntegrationTest(
             test_name=test_name,
-            test_description=f"Workflow test: {relationship.source_endpoint} -> {relationship.target_endpoint}",
-            test_code=test_code,
+            test_type=relationship.relationship_type,
+            description=f"Test relationship: {relationship.relationship_type}",
+            test_content=test_content,
             endpoints=[relationship.source_endpoint, relationship.target_endpoint],
-            test_type='workflow'
+            dependencies=relationship.dependencies
         )
 
     def _generate_test_file_content(self, tests: List[IntegrationTest]) -> str:
         """Generate complete test file content."""
-        content = "# Integration tests for API endpoints\n\n"
-        content += "import pytest\nimport requests\n\n"
+        if not tests:
+            return "# No integration tests generated"
         
-        # Add test data fixtures
-        content += '''@pytest.fixture
-def test_data():
-    """Test data for integration tests."""
-    return {
-        "name": "Test User",
-        "email": "test@example.com",
-        "age": 30
-    }
-
-@pytest.fixture
-def dependency_data():
-    """Dependency data for integration tests."""
-    return {
-        "id": 1,
-        "status": "active",
-        "created_at": "2024-01-01T00:00:00Z"
-    }
+        # File header
+        content = '''"""Integration tests for API relationships."""
+import pytest
+from unittest.mock import patch, MagicMock
 
 '''
         
-        # Add tests
+        # Add imports for all endpoints
+        endpoints = set()
         for test in tests:
-            content += test.test_code + "\n\n"
+            endpoints.update([ep.name for ep in test.endpoints])
+        
+        if endpoints:
+            content += f"# Import endpoints\n"
+            for endpoint in sorted(endpoints):
+                content += f"from api.{endpoint} import {endpoint}\n"
+            content += "\n"
+        
+        # Add test functions
+        for test in tests:
+            content += test.test_content + "\n\n"
         
         return content
 
     def _calculate_endpoint_coverage(self, tests: List[IntegrationTest]) -> List[str]:
-        """Calculate endpoint coverage from tests."""
-        covered_endpoints = set()
-        
+        """Calculate which endpoints are covered by tests."""
+        covered = set()
         for test in tests:
-            covered_endpoints.update(test.endpoints)
+            covered.update([ep.name for ep in test.endpoints])
+        return list(covered)
+
+    def _calculate_coverage_percentage(self, tests: List[IntegrationTest], endpoints_covered: List[str]) -> float:
+        """Calculate coverage percentage."""
+        if not tests:
+            return 0.0
         
-        return list(covered_endpoints)
+        all_endpoints = set()
+        for test in tests:
+            all_endpoints.update([ep.name for ep in test.endpoints])
+        
+        if not all_endpoints:
+            return 0.0
+        
+        return len(endpoints_covered) / len(all_endpoints) * 100
+
+    def generate_test_summary(self, test_suite: IntegrationTestSuite) -> Dict[str, Any]:
+        """Generate summary of integration tests."""
+        return {
+            "total_tests": test_suite.total_tests,
+            "coverage_percentage": test_suite.coverage_percentage,
+            "endpoints_covered": len(test_suite.endpoints_covered),
+            "test_types": {
+                "workflow": len([t for t in test_suite.tests if t.test_type == "workflow"]),
+                "data_flow": len([t for t in test_suite.tests if t.test_type == "data_flow"]),
+                "dependency": len([t for t in test_suite.tests if t.test_type == "dependency"])
+            }
+        }
+
+    def validate_test_suite(self, test_suite: IntegrationTestSuite) -> Dict[str, Any]:
+        """Validate generated test suite."""
+        issues = []
+        
+        if test_suite.total_tests == 0:
+            issues.append("No tests generated")
+        
+        if test_suite.coverage_percentage < 50:
+            issues.append(f"Low coverage: {test_suite.coverage_percentage:.1f}%")
+        
+        # Check for duplicate test names
+        test_names = [test.test_name for test in test_suite.tests]
+        duplicates = set([name for name in test_names if test_names.count(name) > 1])
+        if duplicates:
+            issues.append(f"Duplicate test names: {', '.join(duplicates)}")
+        
+        return {
+            "valid": len(issues) == 0,
+            "issues": issues,
+            "warnings": []
+        }
