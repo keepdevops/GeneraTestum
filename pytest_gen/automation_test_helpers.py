@@ -189,14 +189,17 @@ def analyze_security_requirements(source_file: str, output: str):
     click.echo(f"Source file: {source_file}")
     click.echo("")
     
-    # Analyze and generate security tests
-    tests = analyzer.analyze_and_generate_tests(source_file)
+    # Analyze file for vulnerabilities
+    analysis_result = analyzer.analyze_file(source_file)
+    
+    # Generate security tests
+    tests = analyzer.generate_security_tests(analysis_result.vulnerabilities)
     
     # Get vulnerabilities for reporting
-    vulnerabilities = analyzer.analyzer.analyze_file_security(source_file)
+    vulnerabilities = analysis_result.vulnerabilities
     
     # Generate report
-    report = analyzer.generate_security_report(tests, vulnerabilities)
+    report = analyzer.generate_security_report([analysis_result])
     click.echo(report)
     
     # Save detailed report if requested
