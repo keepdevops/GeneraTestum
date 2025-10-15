@@ -9,304 +9,213 @@ from .cicd_models import CIConfig
 class JenkinsGenerator:
     """Generates Jenkins pipeline configurations."""
 
-    def generate_pipeline(self, project_info: Dict[str, Any]) -> CIConfig:
+    def generate_jenkins_pipeline(self, project_info: Dict[str, Any]) -> CIConfig:
         """Generate Jenkins pipeline configuration."""
-        jenkinsfile_content = f"""pipeline {{
+        pipeline_content = f"""pipeline {{
     agent any
     
     environment {{
         PYTHON_VERSION = '{project_info.get('python_version', '3.9')}'
         JAVA_VERSION = '{project_info.get('java_version', '11')}'
         NODE_VERSION = '{project_info.get('node_version', '16')}'
-        PIP_CACHE_DIR = "${{WORKSPACE}}/.pip_cache"
-    }}
-    
-    options {{
-        timeout(time: 30, unit: 'MINUTES')
-        timestamps()
-        ansiColor('xterm')
-        skipDefaultCheckout()
-        buildDiscarder(logRotator(numToKeepStr: '10'))
     }}
     
     stages {{
         stage('Checkout') {{
             steps {{
                 checkout scm
-                script {{
-                    env.GIT_COMMIT_SHORT = sh(
-                        script: 'git rev-parse --short HEAD',
-                        returnStdout: true
-                    ).trim()
-                }}
             }}
         }}
         
-        stage('Setup Environment') {{
+        stage('Setup') {{
             parallel {{
-                stage('Setup Python') {{
+                stage('Python Setup') {{
                     steps {{
-                        script {{
-                            if (isUnix()) {{
-                                sh '''
-                                    python${{env.PYTHON_VERSION}} --version
-                                    python${{env.PYTHON_VERSION}} -m pip install --upgrade pip
-                                    python${{env.PYTHON_VERSION}} -m pip install -r requirements.txt
-                                    python${{env.PYTHON_VERSION}} -m pip install -r requirements-dev.txt
-                                '''
-                            }} else {{
-                                bat '''
-                                    python --version
-                                    python -m pip install --upgrade pip
-                                    python -m pip install -r requirements.txt
-                                    python -m pip install -r requirements-dev.txt
-                                '''
-                            }}
-                        }}
+                        sh '''
+                            python -m pip install --upgrade pip
+                            pip install -r requirements.txt
+                            pip install pytest pytest-cov pytest-xdist
+                        '''
                     }}
                 }}
-                
-                stage('Setup Java') {{
+                stage('Java Setup') {{
                     when {{
-                        anyOf {{
-                            changeset "**/*.java"
-                            changeset "**/build.gradle"
-                            changeset "**/pom.xml"
-                        }}
+                        expression {{ params.hasJava == true }}
                     }}
                     steps {{
-                        script {{
-                            if (isUnix()) {{
-                                sh '''
-                                    java -version
-                                    ./gradlew --version
-                                '''
-                            }} else {{
-                                bat '''
-                                    java -version
-                                    gradlew.bat --version
-                                '''
-                            }}
-                        }}
+                        sh '''
+                            ./gradlew dependencies
+                        '''
+                    }}
+                }}
+                stage('Node Setup') {{
+                    when {{
+                        expression {{ params.hasJavaScript == true }}
+                    }}
+                    steps {{
+                        sh '''
+                            npm install
+                        '''
                     }}
                 }}
             }}
         }}
         
-        stage('Code Quality') {{
+        stage('Lint') {{
             parallel {{
-                stage('Python Linting') {{
+                stage('Python Lint') {{
                     steps {{
-                        script {{
-                            if (isUnix()) {{
-                                sh '''
-                                    python${{env.PYTHON_VERSION}} -m flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
-                                    python${{env.PYTHON_VERSION}} -m flake8 src/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-                                '''
-                            }} else {{
-                                bat '''
-                                    python -m flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
-                                    python -m flake8 src/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-                                '''
-                            }}
-                        }}
+                        sh '''
+                            pip install flake8 black isort
+                            flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+                            black --check src/
+                            isort --check-only src/
+                        '''
                     }}
                 }}
-                
-                stage('Type Checking') {{
+                stage('Java Lint') {{
+                    when {{
+                        expression {{ params.hasJava == true }}
+                    }}
                     steps {{
-                        script {{
-                            if (isUnix()) {{
-                                sh '''
-                                    python${{env.PYTHON_VERSION}} -m mypy src/ --ignore-missing-imports
-                                '''
-                            }} else {{
-                                bat '''
-                                    python -m mypy src/ --ignore-missing-imports
-                                '''
-                            }}
-                        }}
+                        sh '''
+                            ./gradlew checkstyleMain checkstyleTest
+                        '''
                     }}
                 }}
-                
-                stage('Security Scan') {{
-                    steps {{
-                        script {{
-                            if (isUnix()) {{
-                                sh '''
-                                    python${{env.PYTHON_VERSION}} -m bandit -r src/ -f json -o bandit-report.json || true
-                                    python${{env.PYTHON_VERSION}} -m safety check --json --output safety-report.json || true
-                                '''
-                            }} else {{
-                                bat '''
-                                    python -m bandit -r src/ -f json -o bandit-report.json || true
-                                    python -m safety check --json --output safety-report.json || true
-                                '''
-                            }}
-                        }}
+                stage('JavaScript Lint') {{
+                    when {{
+                        expression {{ params.hasJavaScript == true }}
                     }}
-                    post {{
-                        always {{
-                            publishHTML([
-                                allowMissing: false,
-                                alwaysLinkToLastBuild: true,
-                                keepAll: true,
-                                reportDir: '.',
-                                reportFiles: 'bandit-report.json',
-                                reportName: 'Security Report'
-                            ])
-                        }}
+                    steps {{
+                        sh '''
+                            npm run lint || echo "No lint script found"
+                        '''
                     }}
                 }}
             }}
         }}
         
-        stage('Testing') {{
+        stage('Test') {{
             parallel {{
                 stage('Python Tests') {{
                     steps {{
-                        script {{
-                            if (isUnix()) {{
-                                sh '''
-                                    python${{env.PYTHON_VERSION}} -m pytest tests/ --cov=src --cov-report=xml --cov-report=html --junitxml=test-results.xml -v
-                                '''
-                            }} else {{
-                                bat '''
-                                    python -m pytest tests/ --cov=src --cov-report=xml --cov-report=html --junitxml=test-results.xml -v
-                                '''
-                            }}
-                        }}
+                        sh '''
+                            pytest tests/ -v --cov=src --cov-report=xml --cov-report=html --junitxml=test-results.xml
+                        '''
                     }}
                     post {{
                         always {{
                             publishTestResults testResultsPattern: 'test-results.xml'
-                            publishHTML([
-                                allowMissing: false,
-                                alwaysLinkToLastBuild: true,
-                                keepAll: true,
-                                reportDir: 'htmlcov',
-                                reportFiles: 'index.html',
-                                reportName: 'Coverage Report'
-                            ])
+                            publishCoverage adapters: [coberturaAdapter('coverage.xml')], sourceFileResolver: sourceFiles('STORE_LAST_BUILD')
                         }}
                     }}
                 }}
-                
                 stage('Java Tests') {{
                     when {{
-                        anyOf {{
-                            changeset "**/*.java"
-                            changeset "**/build.gradle"
-                            changeset "**/pom.xml"
-                        }}
+                        expression {{ params.hasJava == true }}
                     }}
                     steps {{
-                        script {{
-                            if (isUnix()) {{
-                                sh '''
-                                    ./gradlew test jacocoTestReport
-                                '''
-                            }} else {{
-                                bat '''
-                                    gradlew.bat test jacocoTestReport
-                                '''
-                            }}
-                        }}
+                        sh '''
+                            ./gradlew test jacocoTestReport
+                        '''
                     }}
                     post {{
                         always {{
-                            publishTestResults testResultsPattern: 'build/test-results/test/**/*.xml'
-                            publishHTML([
-                                allowMissing: false,
-                                alwaysLinkToLastBuild: true,
-                                keepAll: true,
-                                reportDir: 'build/reports/jacoco/test/html',
-                                reportFiles: 'index.html',
-                                reportName: 'Java Coverage Report'
-                            ])
+                            publishTestResults testResultsPattern: 'build/test-results/test/TEST-*.xml'
+                            publishCoverage adapters: [jacocoAdapter('build/reports/jacoco/test/jacocoTestReport.xml')], sourceFileResolver: sourceFiles('STORE_LAST_BUILD')
+                        }}
+                    }}
+                }}
+                stage('JavaScript Tests') {{
+                    when {{
+                        expression {{ params.hasJavaScript == true }}
+                    }}
+                    steps {{
+                        sh '''
+                            npm test
+                            npm run test:coverage || echo "No coverage script found"
+                        '''
+                    }}
+                    post {{
+                        always {{
+                            publishTestResults testResultsPattern: 'test-results.xml'
                         }}
                     }}
                 }}
             }}
         }}
         
-        stage('Integration Tests') {{
-            when {{
-                anyOf {{
-                    branch 'main'
-                    branch 'develop'
-                }}
-            }}
-            steps {{
-                script {{
-                    if (isUnix()) {{
+        stage('Build') {{
+            parallel {{
+                stage('Python Build') {{
+                    steps {{
                         sh '''
-                            # Start services
-                            docker-compose -f docker-compose.test.yml up -d
-                            sleep 30
-                            
-                            # Run integration tests
-                            python${{env.PYTHON_VERSION}} -m pytest tests/integration/ --verbose
-                            
-                            # Stop services
-                            docker-compose -f docker-compose.test.yml down
+                            python setup.py sdist bdist_wheel
                         '''
-                    }} else {{
-                        bat '''
-                            docker-compose -f docker-compose.test.yml up -d
-                            timeout /t 30
-                            python -m pytest tests/integration/ --verbose
-                            docker-compose -f docker-compose.test.yml down
+                    }}
+                }}
+                stage('Java Build') {{
+                    when {{
+                        expression {{ params.hasJava == true }}
+                    }}
+                    steps {{
+                        sh '''
+                            ./gradlew build
+                        '''
+                    }}
+                }}
+                stage('Docker Build') {{
+                    when {{
+                        expression {{ params.hasDocker == true }}
+                    }}
+                    steps {{
+                        sh '''
+                            docker build -t ${{BUILD_TAG}} .
                         '''
                     }}
                 }}
             }}
         }}
         
-        stage('Performance Tests') {{
-            when {{
-                anyOf {{
-                    branch 'main'
-                    expression {{ return params.RUN_PERFORMANCE_TESTS == true }}
-                }}
-            }}
-            steps {{
-                script {{
-                    if (isUnix()) {{
+        stage('Security Scan') {{
+            parallel {{
+                stage('Python Security') {{
+                    steps {{
                         sh '''
-                            python${{env.PYTHON_VERSION}} -m pytest tests/performance/ --benchmark-only --benchmark-json=benchmark-results.json
+                            pip install bandit safety
+                            bandit -r src/
+                            safety check
                         '''
-                    }} else {{
-                        bat '''
-                            python -m pytest tests/performance/ --benchmark-only --benchmark-json=benchmark-results.json
+                    }}
+                }}
+                stage('Docker Security') {{
+                    when {{
+                        expression {{ params.hasDocker == true }}
+                    }}
+                    steps {{
+                        sh '''
+                            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \\
+                                aquasec/trivy image ${{BUILD_TAG}}
                         '''
                     }}
                 }}
             }}
         }}
         
-        stage('Deploy Staging') {{
-            when {{
-                branch 'develop'
-                not {{ changeRequest() }}
-            }}
-            steps {{
-                script {{
-                    echo "Deploying to staging environment..."
-                    // Add your staging deployment commands here
-                }}
-            }}
-        }}
-        
-        stage('Deploy Production') {{
+        stage('Deploy') {{
             when {{
                 branch 'main'
-                not {{ changeRequest() }}
             }}
             steps {{
                 script {{
-                    echo "Deploying to production environment..."
-                    // Add your production deployment commands here
+                    if (env.BRANCH_NAME == 'main') {{
+                        echo "Deploying to production..."
+                        // Add your deployment logic here
+                    }} else {{
+                        echo "Deploying to staging..."
+                        // Add your staging deployment logic here
+                    }}
                 }}
             }}
         }}
@@ -314,39 +223,28 @@ class JenkinsGenerator:
     
     post {{
         always {{
-            script {{
-                // Archive artifacts
-                archiveArtifacts artifacts: 'test-results.xml,bandit-report.json,safety-report.json,benchmark-results.json', fingerprint: true
-                
-                // Clean workspace
-                cleanWs()
-            }}
+            cleanWs()
         }}
-        
         success {{
-            script {{
-                echo "✅ Pipeline completed successfully!"
-            }}
+            emailext (
+                subject: "Build Successful: ${{env.JOB_NAME}} - ${{env.BUILD_NUMBER}}",
+                body: "The build was successful. Please check the build details.",
+                to: "${{env.CHANGE_AUTHOR_EMAIL}}"
+            )
         }}
-        
         failure {{
-            script {{
-                echo "❌ Pipeline failed. Please check the logs."
-            }}
-        }}
-        
-        unstable {{
-            script {{
-                echo "⚠️ Pipeline completed with warnings."
-            }}
+            emailext (
+                subject: "Build Failed: ${{env.JOB_NAME}} - ${{env.BUILD_NUMBER}}",
+                body: "The build failed. Please check the build details.",
+                to: "${{env.CHANGE_AUTHOR_EMAIL}}"
+            )
         }}
     }}
-}}
-"""
-        
+}}"""
+
         return CIConfig(
-            name="Jenkins Pipeline",
-            content=jenkinsfile_content,
+            name="Jenkinsfile",
+            content=pipeline_content,
             file_path="Jenkinsfile",
             config_type="jenkins"
         )

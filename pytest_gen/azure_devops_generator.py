@@ -9,23 +9,23 @@ from .cicd_models import CIConfig
 class AzureDevOpsGenerator:
     """Generates Azure DevOps pipeline configurations."""
 
-    def generate_pipeline(self, project_info: Dict[str, Any]) -> CIConfig:
+    def generate_azure_devops(self, project_info: Dict[str, Any]) -> CIConfig:
         """Generate Azure DevOps pipeline configuration."""
-        azure_pipeline_content = f"""trigger:
-  branches:
-    include:
-      - main
-      - develop
-  paths:
-    exclude:
-      - README.md
-      - docs/*
+        pipeline_content = f"""trigger:
+- main
+- develop
 
 pr:
+- main
+- develop
+
+schedules:
+- cron: "0 2 * * *"
+  displayName: Nightly build
   branches:
     include:
-      - main
-      - develop
+    - main
+  always: true
 
 variables:
   pythonVersion: '{project_info.get('python_version', '3.9')}'
@@ -33,164 +33,154 @@ variables:
   nodeVersion: '{project_info.get('node_version', '16')}'
 
 stages:
-- stage: Quality
-  displayName: 'Code Quality'
-  jobs:
-  - job: PythonQuality
-    displayName: 'Python Code Quality'
-    pool:
-      vmImage: 'ubuntu-latest'
-    
-    steps:
-    - task: UsePythonVersion@0
-      inputs:
-        versionSpec: '$(pythonVersion)'
-      displayName: 'Use Python $(pythonVersion)'
-    
-    - task: Cache@2
-      inputs:
-        key: 'pip | "$(Agent.OS)" | requirements.txt'
-        path: '$(pip_cache_dir)'
-      displayName: 'Cache pip packages'
-    
-    - script: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install -r requirements-dev.txt
-      displayName: 'Install dependencies'
-    
-    - script: |
-        flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
-        flake8 src/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-      displayName: 'Lint with flake8'
-      continueOnError: true
-    
-    - script: |
-        mypy src/ --ignore-missing-imports
-      displayName: 'Type check with mypy'
-      continueOnError: true
-    
-    - script: |
-        bandit -r src/ -f json -o bandit-report.json
-        safety check --json --output safety-report.json
-      displayName: 'Security scan'
-      continueOnError: true
-    
-    - task: PublishTestResults@2
-      inputs:
-        testResultsFormat: 'JUnit'
-        testResultsFiles: '**/bandit-report.json'
-        mergeTestResults: true
-      displayName: 'Publish security test results'
-      condition: always()
-    
-    - task: PublishCodeCoverageResults@1
-      inputs:
-        codeCoverageTool: 'Cobertura'
-        summaryFileLocation: '**/coverage.xml'
-      displayName: 'Publish code coverage'
-      condition: always()
-
 - stage: Test
-  displayName: 'Testing'
-  dependsOn: Quality
+  displayName: 'Test Stage'
   jobs:
   - job: PythonTests
     displayName: 'Python Tests'
     pool:
       vmImage: 'ubuntu-latest'
-    
-    strategy:
-      matrix:
-        Python38:
-          python.version: '3.8'
-        Python39:
-          python.version: '3.9'
-        Python310:
-          python.version: '3.10'
-        Python311:
-          python.version: '3.11'
-    
     steps:
     - task: UsePythonVersion@0
       inputs:
-        versionSpec: '$(python.version)'
-      displayName: 'Use Python $(python.version)'
+        versionSpec: '$(pythonVersion)'
+      displayName: 'Use Python $(pythonVersion)'
     
     - script: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install -r requirements-dev.txt
+        pip install pytest pytest-cov pytest-xdist flake8 black isort
       displayName: 'Install dependencies'
     
     - script: |
-        pytest tests/ --cov=src --cov-report=xml --cov-report=html --junitxml=test-results.xml -v
-      displayName: 'Run tests with pytest'
+        flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        black --check src/
+        isort --check-only src/
+      displayName: 'Run linting'
+    
+    - script: |
+        pytest tests/ -v --cov=src --cov-report=xml --cov-report=html --junitxml=test-results.xml
+      displayName: 'Run tests'
     
     - task: PublishTestResults@2
       inputs:
-        testResultsFormat: 'JUnit'
-        testResultsFiles: '**/test-results.xml'
-        mergeTestResults: true
-      displayName: 'Publish test results'
+        testResultsFiles: 'test-results.xml'
+        testRunTitle: 'Python Tests'
       condition: always()
     
     - task: PublishCodeCoverageResults@1
       inputs:
         codeCoverageTool: 'Cobertura'
-        summaryFileLocation: '**/coverage.xml'
-        reportDirectory: '**/htmlcov'
-      displayName: 'Publish code coverage'
-      condition: always()
-  
+        summaryFileLocation: 'coverage.xml'
+        reportDirectory: 'htmlcov'
+      condition: always()"""
+
+        # Add Java testing if project has Java
+        if project_info.get('has_java', False):
+            pipeline_content += self._add_java_job(project_info)
+        
+        # Add JavaScript testing if project has JavaScript
+        if project_info.get('has_javascript', False):
+            pipeline_content += self._add_javascript_job(project_info)
+        
+        # Add security scanning
+        pipeline_content += self._add_security_stage(project_info)
+        
+        # Add build stage
+        pipeline_content += self._add_build_stage(project_info)
+        
+        # Add deployment stage
+        pipeline_content += self._add_deployment_stage(project_info)
+
+        return CIConfig(
+            name="azure-pipelines.yml",
+            content=pipeline_content,
+            file_path="azure-pipelines.yml",
+            config_type="azure_devops"
+        )
+
+    def _add_java_job(self, project_info: Dict[str, Any]) -> str:
+        """Add Java testing job."""
+        return f"""
+
   - job: JavaTests
     displayName: 'Java Tests'
     pool:
       vmImage: 'ubuntu-latest'
-    condition: or(eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
-    
     steps:
     - task: JavaToolInstaller@0
       inputs:
         versionSpec: '$(javaVersion)'
         jdkArchitectureOption: 'x64'
-      displayName: 'Install Java $(javaVersion)'
+        jdkSourceOption: 'PreInstalled'
+      displayName: 'Use Java $(javaVersion)'
     
     - script: |
-        chmod +x gradlew
-        ./gradlew --version
+        chmod +x ./gradlew
+        ./gradlew dependencies
       displayName: 'Setup Gradle'
     
     - script: |
+        ./gradlew checkstyleMain checkstyleTest
+      displayName: 'Run linting'
+    
+    - script: |
         ./gradlew test jacocoTestReport
-      displayName: 'Run tests with Gradle'
+      displayName: 'Run tests'
     
     - task: PublishTestResults@2
       inputs:
-        testResultsFormat: 'JUnit'
-        testResultsFiles: '**/build/test-results/test/**/*.xml'
-        mergeTestResults: true
-      displayName: 'Publish Java test results'
+        testResultsFiles: 'build/test-results/test/TEST-*.xml'
+        testRunTitle: 'Java Tests'
       condition: always()
     
     - task: PublishCodeCoverageResults@1
       inputs:
         codeCoverageTool: 'JaCoCo'
-        summaryFileLocation: '**/build/reports/jacoco/test/jacocoTestReport.xml'
-        reportDirectory: '**/build/reports/jacoco/test/html'
-      displayName: 'Publish Java coverage'
-      condition: always()
+        summaryFileLocation: 'build/reports/jacoco/test/jacocoTestReport.xml'
+      condition: always()"""
 
-- stage: Performance
-  displayName: 'Performance Testing'
-  dependsOn: Test
-  condition: or(eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
-  jobs:
-  - job: PerformanceTests
-    displayName: 'Performance Tests'
+    def _add_javascript_job(self, project_info: Dict[str, Any]) -> str:
+        """Add JavaScript testing job."""
+        return f"""
+
+  - job: JavaScriptTests
+    displayName: 'JavaScript Tests'
     pool:
       vmImage: 'ubuntu-latest'
+    steps:
+    - task: NodeTool@0
+      inputs:
+        versionSpec: '$(nodeVersion)'
+      displayName: 'Use Node.js $(nodeVersion)'
     
+    - script: |
+        npm ci
+      displayName: 'Install dependencies'
+    
+    - script: |
+        npm run lint || echo "No lint script found"
+        npm run format:check || echo "No format check script found"
+      displayName: 'Run linting'
+    
+    - script: |
+        npm test
+        npm run test:coverage || echo "No coverage script found"
+      displayName: 'Run tests'"""
+
+    def _add_security_stage(self, project_info: Dict[str, Any]) -> str:
+        """Add security scanning stage."""
+        return f"""
+
+- stage: Security
+  displayName: 'Security Stage'
+  dependsOn: Test
+  condition: succeeded()
+  jobs:
+  - job: SecurityScan
+    displayName: 'Security Scanning'
+    pool:
+      vmImage: 'ubuntu-latest'
     steps:
     - task: UsePythonVersion@0
       inputs:
@@ -198,40 +188,30 @@ stages:
       displayName: 'Use Python $(pythonVersion)'
     
     - script: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest-benchmark memory-profiler
-      displayName: 'Install dependencies'
+        pip install bandit safety
+        bandit -r src/ -f json -o bandit-report.json
+        safety check --json --output safety-report.json
+      displayName: 'Run security scans'
     
-    - script: |
-        pytest tests/performance/ --benchmark-only --benchmark-json=benchmark-results.json
-      displayName: 'Run performance tests'
-    
-    - task: PublishTestResults@2
+    - task: PublishBuildArtifacts@1
       inputs:
-        testResultsFormat: 'JUnit'
-        testResultsFiles: '**/benchmark-results.json'
-        mergeTestResults: true
-      displayName: 'Publish performance results'
-      condition: always()
+        pathToPublish: 'bandit-report.json'
+        artifactName: 'security-reports'
+      condition: always()"""
 
-- stage: Integration
-  displayName: 'Integration Testing'
-  dependsOn: Test
-  condition: or(eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
+    def _add_build_stage(self, project_info: Dict[str, Any]) -> str:
+        """Add build stage."""
+        return f"""
+
+- stage: Build
+  displayName: 'Build Stage'
+  dependsOn: Security
+  condition: succeeded()
   jobs:
-  - job: IntegrationTests
-    displayName: 'Integration Tests'
+  - job: Build
+    displayName: 'Build Application'
     pool:
       vmImage: 'ubuntu-latest'
-    
-    services:
-      postgres:
-        image: postgres:13
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: test_db
-    
     steps:
     - task: UsePythonVersion@0
       inputs:
@@ -239,59 +219,43 @@ stages:
       displayName: 'Use Python $(pythonVersion)'
     
     - script: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest-django
-      displayName: 'Install dependencies'
+        python setup.py sdist bdist_wheel
+      displayName: 'Build Python package'
+    
+    - task: PublishBuildArtifacts@1
+      inputs:
+        pathToPublish: 'dist/'
+        artifactName: 'python-package'
     
     - script: |
-        pytest tests/integration/ --verbose
-      displayName: 'Run integration tests'
-      env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        docker build -t $(Build.Repository.Name):$(Build.BuildId) .
+      displayName: 'Build Docker image'
+      condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')"""
+
+    def _add_deployment_stage(self, project_info: Dict[str, Any]) -> str:
+        """Add deployment stage."""
+        return f"""
 
 - stage: Deploy
-  displayName: 'Deployment'
-  dependsOn: 
-    - Test
-    - Performance
-    - Integration
-  condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['Build.SourceBranch'], 'refs/heads/develop')))
+  displayName: 'Deploy Stage'
+  dependsOn: Build
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   jobs:
-  - deployment: DeployStaging
-    displayName: 'Deploy to Staging'
-    pool:
-      vmImage: 'ubuntu-latest'
-    environment: 'staging'
-    condition: eq(variables['Build.SourceBranch'], 'refs/heads/develop')
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - script: |
-              echo "Deploying to staging environment..."
-              echo "Deployment commands would go here"
-            displayName: 'Deploy to staging'
-  
-  - deployment: DeployProduction
+  - deployment: DeployToProduction
     displayName: 'Deploy to Production'
     pool:
       vmImage: 'ubuntu-latest'
     environment: 'production'
-    condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
     strategy:
       runOnce:
         deploy:
           steps:
           - script: |
               echo "Deploying to production environment..."
-              echo "Deployment commands would go here"
-            displayName: 'Deploy to production'
-"""
-        
-        return CIConfig(
-            name="Azure DevOps Pipeline",
-            content=azure_pipeline_content,
-            file_path="azure-pipelines.yml",
-            config_type="azure_devops"
-        )
+              # Add your deployment commands here
+            displayName: 'Deploy to Production'
+          
+          - script: |
+              echo "Running smoke tests..."
+              # Add your smoke test commands here
+            displayName: 'Run Smoke Tests'"""

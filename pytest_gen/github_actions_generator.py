@@ -9,7 +9,7 @@ from .cicd_models import CIConfig
 class GitHubActionsGenerator:
     """Generates GitHub Actions workflow configurations."""
 
-    def generate_workflow(self, project_info: Dict[str, Any]) -> CIConfig:
+    def generate_github_actions(self, project_info: Dict[str, Any]) -> CIConfig:
         """Generate GitHub Actions workflow."""
         workflow_content = f"""name: Test Suite CI/CD Pipeline
 
@@ -34,8 +34,7 @@ jobs:
         python-version: ['3.8', '3.9', '3.10', '3.11']
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
     
     - name: Set up Python ${{{{ matrix.python-version }}}}
       uses: actions/setup-python@v4
@@ -54,24 +53,18 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install -r requirements-dev.txt
+        pip install pytest pytest-cov pytest-xdist
     
-    - name: Lint with flake8
+    - name: Run linting
       run: |
-        flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
-        flake8 src/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        pip install flake8 black isort
+        flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        black --check src/
+        isort --check-only src/
     
-    - name: Type check with mypy
+    - name: Run tests
       run: |
-        mypy src/ --ignore-missing-imports
-    
-    - name: Security scan with bandit
-      run: |
-        bandit -r src/ -f json -o bandit-report.json || true
-    
-    - name: Run tests with pytest
-      run: |
-        pytest tests/ --cov=src --cov-report=xml --cov-report=html --junitxml=test-results.xml
+        pytest tests/ -v --cov=src --cov-report=xml --cov-report=html --junitxml=test-results.xml
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
@@ -79,225 +72,46 @@ jobs:
         file: ./coverage.xml
         flags: unittests
         name: codecov-umbrella
-        fail_ci_if_error: false
-    
-    - name: Upload test results
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: test-results-${{{{ matrix.python-version }}}}
-        path: |
-          test-results.xml
-          htmlcov/
-          bandit-report.json
+        fail_ci_if_error: false"""
 
-  test-java:
-    runs-on: ubuntu-latest
-    if: contains(github.event.head_commit.message, '[java]') || contains(github.event.pull_request.title, '[java]')
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Set up JDK ${{{{ env.JAVA_VERSION }}}}
-      uses: actions/setup-java@v3
-      with:
-        java-version: ${{{{ env.JAVA_VERSION }}}}
-        distribution: 'temurin'
-    
-    - name: Cache Gradle packages
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.gradle/caches
-          ~/.gradle/wrapper
-        key: ${{{{ runner.os }}}}-gradle-${{{{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}}}
-        restore-keys: |
-          ${{{{ runner.os }}}}-gradle-
-    
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
-    
-    - name: Build with Gradle
-      run: ./gradlew build
-    
-    - name: Run tests with Gradle
-      run: ./gradlew test
-    
-    - name: Generate coverage report
-      run: ./gradlew jacocoTestReport
-    
-    - name: Upload test results
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: java-test-results
-        path: |
-          build/test-results/
-          build/reports/jacoco/test/html/
-
-  security-scan:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{{{ env.PYTHON_VERSION }}}}
-    
-    - name: Install security tools
-      run: |
-        pip install bandit safety semgrep
-    
-    - name: Run Bandit security scan
-      run: |
-        bandit -r src/ -f json -o bandit-report.json
-    
-    - name: Run Safety dependency scan
-      run: |
-        safety check --json --output safety-report.json
-    
-    - name: Run Semgrep security scan
-      run: |
-        semgrep --config=auto --json --output=semgrep-report.json src/
-    
-    - name: Upload security reports
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: security-reports
-        path: |
-          bandit-report.json
-          safety-report.json
-          semgrep-report.json
-
-  performance-test:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || contains(github.event.head_commit.message, '[performance]')
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{{{ env.PYTHON_VERSION }}}}
-    
-    - name: Install dependencies
-      run: |
-        pip install -r requirements.txt
-        pip install pytest-benchmark memory-profiler
-    
-    - name: Run performance tests
-      run: |
-        pytest tests/performance/ --benchmark-only --benchmark-json=benchmark-results.json
-    
-    - name: Upload performance results
-      uses: actions/upload-artifact@v3
-      with:
-        name: performance-results
-        path: benchmark-results.json
-
-  integration-test:
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
-    
-    services:
-      postgres:
-        image: postgres:13
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: test_db
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{{{ env.PYTHON_VERSION }}}}
-    
-    - name: Install dependencies
-      run: |
-        pip install -r requirements.txt
-    
-    - name: Run integration tests
-      run: |
-        pytest tests/integration/ --verbose
-      env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
-
-  deploy-staging:
-    runs-on: ubuntu-latest
-    needs: [test-python, test-java, security-scan]
-    if: github.ref == 'refs/heads/develop'
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Deploy to staging
-      run: |
-        echo "Deploying to staging environment..."
-        # Add your staging deployment commands here
-    
-    - name: Run smoke tests
-      run: |
-        echo "Running smoke tests on staging..."
-        # Add your smoke test commands here
-
-  deploy-production:
-    runs-on: ubuntu-latest
-    needs: [test-python, test-java, security-scan, integration-test]
-    if: github.ref == 'refs/heads/main'
-    environment: production
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Deploy to production
-      run: |
-        echo "Deploying to production environment..."
-        # Add your production deployment commands here
-    
-    - name: Run health checks
-      run: |
-        echo "Running health checks..."
-        # Add your health check commands here
-
-  notify:
-    runs-on: ubuntu-latest
-    needs: [test-python, test-java, security-scan]
-    if: always()
-    
-    steps:
-    - name: Notify on success
-      if: needs.test-python.result == 'success' && needs.test-java.result == 'success'
-      run: |
-        echo "✅ All tests passed successfully!"
-    
-    - name: Notify on failure
-      if: needs.test-python.result == 'failure' || needs.test-java.result == 'failure'
-      run: |
-        echo "❌ Some tests failed. Please check the logs."
-"""
+        # Add Java testing if project has Java
+        if project_info.get('has_java', False):
+            workflow_content += self._add_java_job(project_info)
         
+        # Add JavaScript testing if project has JavaScript
+        if project_info.get('has_javascript', False):
+            workflow_content += self._add_javascript_job(project_info)
+        
+        # Add Docker job if project has Docker
+        if project_info.get('has_docker', False):
+            workflow_content += self._add_docker_job(project_info)
+        
+        # Add deployment job
+        workflow_content += self._add_deployment_job(project_info)
+
         return CIConfig(
-            name="GitHub Actions Workflow",
+            name="ci.yml",
             content=workflow_content,
-            file_path="test-pipeline.yml",
+            file_path=".github/workflows/ci.yml",
             config_type="github_actions"
         )
+
+    def _add_java_job(self, project_info: Dict[str, Any]) -> str:
+        """Add Java testing job to workflow."""
+        from .github_actions_templates import get_java_job_template
+        return get_java_job_template(project_info)
+
+    def _add_javascript_job(self, project_info: Dict[str, Any]) -> str:
+        """Add JavaScript testing job to workflow."""
+        from .github_actions_templates import get_javascript_job_template
+        return get_javascript_job_template(project_info)
+
+    def _add_docker_job(self, project_info: Dict[str, Any]) -> str:
+        """Add Docker testing job to workflow."""
+        from .github_actions_templates import get_docker_job_template
+        return get_docker_job_template(project_info)
+
+    def _add_deployment_job(self, project_info: Dict[str, Any]) -> str:
+        """Add deployment job to workflow."""
+        from .github_actions_templates import get_deployment_job_template
+        return get_deployment_job_template(project_info)

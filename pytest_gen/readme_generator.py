@@ -3,14 +3,13 @@ README documentation generator.
 """
 
 from typing import Dict, Any
-from datetime import datetime
 from .doc_models import TestDocumentation
 
 
 class ReadmeGenerator:
     """Generates comprehensive project README documentation."""
 
-    def generate_readme(self, project_info: Dict[str, Any]) -> TestDocumentation:
+    def generate_project_readme(self, project_info: Dict[str, Any]) -> TestDocumentation:
         """Generate comprehensive project README."""
         content = f"""# {project_info.get('name', 'Test Generator Project')}
 
@@ -33,313 +32,235 @@ class ReadmeGenerator:
 ## 📁 Project Structure
 
 ```
-{project_info.get('project_structure', 'project/')}
+{project_info.get('name', 'project')}/
 ├── src/                    # Source code
-├── tests/                  # Generated test files
-├── docs/                   # Documentation
-├── .github/workflows/      # CI/CD configurations
-└── requirements.txt        # Dependencies
+├── tests/                  # Test files
+│   ├── unit/              # Unit tests
+│   ├── integration/       # Integration tests
+│   └── e2e/               # End-to-end tests
+├── docs/                  # Documentation
+├── scripts/               # Build and deployment scripts
+├── requirements.txt       # Python dependencies
+├── setup.py              # Package configuration
+├── README.md             # This file
+└── .github/              # GitHub workflows
+    └── workflows/
+        └── ci.yml        # CI/CD pipeline
 ```
 
 ## 🛠️ Installation
 
 ### Prerequisites
 
-- Python 3.8+
-- Java 11+ (for Java projects)
-- pip or conda
+- Python {project_info.get('python_version', '3.9')}+
+- pip
+- Git
 
 ### Setup
 
-1. **Clone the repository:**
+1. **Clone the repository**:
    ```bash
-   git clone {project_info.get('repository_url', '<repository-url>')}
+   git clone {project_info.get('repository', 'https://github.com/your-org/your-project.git')}
    cd {project_info.get('name', 'project')}
    ```
 
-2. **Install dependencies:**
+2. **Create a virtual environment**:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\\Scripts\\activate
+   ```
+
+3. **Install dependencies**:
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Verify installation:**
+4. **Install the package in development mode**:
    ```bash
-   python -m pytest_gen --help
+   pip install -e .
    ```
 
 ## 🧪 Running Tests
 
-### Python Tests
-
+### Run All Tests
 ```bash
-# Run all tests
 pytest
+```
 
-# Run with coverage
-pytest --cov=src --cov-report=html
+### Run Tests with Coverage
+```bash
+pytest --cov=src --cov-report=html --cov-report=term
+```
 
-# Run specific test file
-pytest tests/test_calculator.py
+### Run Specific Test Types
+```bash
+# Unit tests only
+pytest tests/unit/
 
-# Run with verbose output
+# Integration tests only
+pytest tests/integration/
+
+# End-to-end tests only
+pytest tests/e2e/
+```
+
+### Run Tests with Different Verbosity
+```bash
+# Verbose output
 pytest -v
+
+# Extra verbose with print statements
+pytest -s
+
+# Show local variables in tracebacks
+pytest -l
 ```
 
-### Java Tests
+## 📊 Coverage Reports
 
-```bash
-# Run all tests
-./gradlew test
+After running tests with coverage, you can view detailed reports:
 
-# Run with coverage
-./gradlew test jacocoTestReport
-
-# Run specific test class
-./gradlew test --tests TestCalculator
-```
-
-## 🔧 Configuration
-
-### Python Configuration
-
-Create a `pytest_gen_config.json` file:
-
-```json
-{{
-  "test_framework": "pytest",
-  "mock_level": "comprehensive",
-  "coverage_threshold": 80,
-  "include_performance_tests": true,
-  "include_security_tests": true,
-  "include_integration_tests": true
-}}
-```
-
-### Java Configuration
-
-Create a `pytest_gen_config.json` file:
-
-```json
-{{
-  "test_framework": "junit5",
-  "mock_framework": "mockito",
-  "coverage_threshold": 80,
-  "include_performance_tests": true,
-  "include_security_tests": true
-}}
-```
-
-## 📊 Test Coverage
-
-Current test coverage: **{project_info.get('coverage_percentage', '85')}%**
-
-### Coverage Report
-
-```bash
-# Generate HTML coverage report
-pytest --cov=src --cov-report=html
-
-# View report
-open htmlcov/index.html
-```
+- **HTML Report**: Open `htmlcov/index.html` in your browser
+- **Terminal Report**: Coverage summary displayed in terminal
+- **XML Report**: Available for CI/CD integration
 
 ### Coverage Targets
 
-- **Minimum**: 80%
-- **Target**: 90%
-- **Excellent**: 95%+
+- **Minimum**: 80% overall coverage
+- **Recommended**: 90% overall coverage
+- **Excellent**: 95% overall coverage
 
-## 🔒 Security Testing
+## 🔧 Configuration
 
-The project includes comprehensive security testing:
+### pytest Configuration
 
-### Security Test Categories
+Create `pytest.ini` in your project root:
 
-- **SQL Injection**: Database query security
-- **XSS Protection**: Cross-site scripting prevention
-- **Input Validation**: Data sanitization and validation
-- **Path Traversal**: File system security
-- **Command Injection**: System command security
-- **Authentication**: User authentication and authorization
-
-### Running Security Tests
-
-```bash
-# Run all security tests
-pytest tests/security/
-
-# Run specific security test category
-pytest tests/security/test_sql_injection.py
+```ini
+[tool:pytest]
+testpaths = tests
+python_files = test_*.py
+python_classes = Test*
+python_functions = test_*
+addopts = 
+    --strict-markers
+    --strict-config
+    --cov=src
+    --cov-report=term-missing
+    --cov-report=html
+    --cov-fail-under=80
+markers =
+    slow: marks tests as slow (deselect with '-m "not slow"')
+    integration: marks tests as integration tests
+    e2e: marks tests as end-to-end tests
 ```
 
-## ⚡ Performance Testing
+### Coverage Configuration
 
-Performance tests ensure your code meets timing requirements:
+Create `.coveragerc`:
 
-### Performance Test Types
+```ini
+[run]
+source = src
+omit = 
+    */tests/*
+    */venv/*
+    */migrations/*
 
-- **Execution Time**: Function execution time limits
-- **Memory Usage**: Memory consumption monitoring
-- **Complexity Analysis**: Algorithmic complexity verification
-- **Load Testing**: High-load scenario testing
-
-### Running Performance Tests
-
-```bash
-# Run performance tests
-pytest tests/performance/
-
-# Run with timing analysis
-pytest tests/performance/ --durations=10
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
 ```
 
-## 🔗 Integration Testing
+## 🚀 Development
 
-Integration tests verify end-to-end workflows:
+### Code Style
 
-### Integration Test Types
-
-- **API Workflows**: Complete API request/response cycles
-- **Data Flow**: Data transformation and validation
-- **Service Integration**: External service interactions
-- **Database Integration**: Database operations and transactions
-
-### Running Integration Tests
+This project follows PEP 8 style guidelines. Use the provided tools:
 
 ```bash
-# Run integration tests
-pytest tests/integration/
+# Format code
+black src/ tests/
 
-# Run with external services
-pytest tests/integration/ --external-services
+# Check code style
+flake8 src/ tests/
+
+# Type checking
+mypy src/
 ```
 
-## 🤖 Automation Features
+### Pre-commit Hooks
 
-### Automated Test Generation
+Install pre-commit hooks:
 
 ```bash
-# Generate tests for a file
-python -m pytest_gen generate example.py
-
-# Generate tests for a directory
-python -m pytest_gen generate src/
-
-# Generate with specific options
-python -m pytest_gen generate example.py --framework pytest --coverage 90
+pip install pre-commit
+pre-commit install
 ```
 
-### Automated Analysis
+### Adding New Tests
 
-```bash
-# Run complete analysis
-python -m pytest_gen automation complete src/ tests/
+1. **Unit Tests**: Add to `tests/unit/`
+2. **Integration Tests**: Add to `tests/integration/`
+3. **End-to-End Tests**: Add to `tests/e2e/`
 
-# Run coverage analysis
-python -m pytest_gen automation coverage src/ tests/
+Follow the naming convention: `test_<module_name>.py`
 
-# Run security analysis
-python -m pytest_gen automation security src/
+## 📚 API Documentation
 
-# Run performance analysis
-python -m pytest_gen automation performance src/
-```
-
-## 🚀 CI/CD Integration
-
-### GitHub Actions
-
-The project includes pre-configured GitHub Actions workflows:
-
-- **Test Runner**: Automated test execution
-- **Coverage Reporting**: Coverage analysis and reporting
-- **Security Scanning**: Security vulnerability detection
-- **Performance Monitoring**: Performance regression detection
-
-### Jenkins Pipeline
-
-Jenkins pipeline configuration is available in `.jenkins/Jenkinsfile`.
-
-## 📈 Monitoring and Reporting
-
-### Test Reports
-
-- **HTML Reports**: Detailed test execution reports
-- **Coverage Reports**: Code coverage analysis
-- **Security Reports**: Security vulnerability assessment
-- **Performance Reports**: Performance metrics and trends
-
-### Metrics Dashboard
-
-Access the metrics dashboard at: `{project_info.get('dashboard_url', 'http://localhost:8080/dashboard')}`
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-1. **Import Errors**: Ensure all dependencies are installed
-2. **Test Failures**: Check test configuration and environment
-3. **Coverage Issues**: Verify source paths in configuration
-4. **Performance Issues**: Check system resources and test timeouts
-
-### Debug Mode
-
-```bash
-# Run with debug output
-pytest --log-cli-level=DEBUG
-
-# Run with verbose output
-pytest -vvv
-```
+For detailed API documentation, see:
+- [API Reference](docs/API.md)
+- [Test Guide](docs/TEST_GUIDE.md)
+- [Coverage Report](docs/COVERAGE_REPORT.md)
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Make your changes
-4. Add tests for new functionality
-5. Ensure all tests pass
-6. Submit a pull request
+4. Add tests for your changes
+5. Ensure all tests pass (`pytest`)
+6. Commit your changes (`git commit -m 'Add amazing feature'`)
+7. Push to the branch (`git push origin feature/amazing-feature`)
+8. Open a Pull Request
 
-### Development Setup
+### Development Guidelines
 
-```bash
-# Install development dependencies
-pip install -r requirements-dev.txt
+- Write tests for all new functionality
+- Maintain test coverage above 80%
+- Follow PEP 8 style guidelines
+- Update documentation as needed
+- Add type hints to new code
 
-# Run linting
-flake8 src/ tests/
+## 📄 License
 
-# Run type checking
-mypy src/
+This project is licensed under the {project_info.get('license', 'MIT')} License - see the [LICENSE](LICENSE) file for details.
 
-# Run all quality checks
-pre-commit run --all-files
-```
+## 👥 Authors
 
-## 📝 License
-
-{project_info.get('license', 'MIT License')}
+- **{project_info.get('author', 'Your Name')}** - *Initial work* - [{project_info.get('email', 'your.email@example.com')}](mailto:{project_info.get('email', 'your.email@example.com')})
 
 ## 🙏 Acknowledgments
 
-- Built with [pytest](https://pytest.org/) for Python testing
-- Built with [JUnit 5](https://junit.org/junit5/) for Java testing
-- Security testing powered by [Bandit](https://bandit.readthedocs.io/)
-- Coverage analysis by [coverage.py](https://coverage.readthedocs.io/)
+- Thanks to the pytest community for the excellent testing framework
+- Thanks to all contributors who help improve this project
+- Inspired by modern testing practices and CI/CD best practices
 
 ## 📞 Support
 
-- **Documentation**: [Project Wiki]({project_info.get('wiki_url', '<wiki-url>')})
-- **Issues**: [GitHub Issues]({project_info.get('issues_url', '<issues-url>')})
-- **Discussions**: [GitHub Discussions]({project_info.get('discussions_url', '<discussions-url>')})
+- **Issues**: [GitHub Issues]({project_info.get('repository', 'https://github.com/your-org/your-project')}/issues)
+- **Discussions**: [GitHub Discussions]({project_info.get('repository', 'https://github.com/your-org/your-project')}/discussions)
+- **Email**: {project_info.get('email', 'support@example.com')}
 
 ---
 
-**Last Updated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-**Generated by**: pytest-gen v{project_info.get('version', '1.0.0')}
+**Last Updated**: {project_info.get('last_updated', '2024-01-01')}
+**Version**: {project_info.get('version', '1.0.0')}
 """
-        
+
         return TestDocumentation(
             title="README",
             content=content,

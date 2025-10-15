@@ -9,108 +9,32 @@ from .cicd_models import CIConfig
 class GitLabCIGenerator:
     """Generates GitLab CI pipeline configurations."""
 
-    def generate_pipeline(self, project_info: Dict[str, Any]) -> CIConfig:
-        """Generate GitLab CI pipeline configuration."""
-        gitlab_ci_content = f"""stages:
-  - setup
-  - quality
+    def generate_gitlab_ci(self, project_info: Dict[str, Any]) -> CIConfig:
+        """Generate GitLab CI configuration."""
+        pipeline_content = f"""stages:
   - test
+  - build
   - security
-  - performance
-  - integration
   - deploy
 
 variables:
   PYTHON_VERSION: "{project_info.get('python_version', '3.9')}"
   JAVA_VERSION: "{project_info.get('java_version', '11')}"
   NODE_VERSION: "{project_info.get('node_version', '16')}"
-  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
 
-cache:
-  paths:
-    - .cache/pip/
-    - .gradle/caches/
-    - .gradle/wrapper/
-
-# Python setup
-setup_python:
-  stage: setup
-  image: python:${{PYTHON_VERSION}}
-  script:
-    - python --version
-    - pip install --upgrade pip
-    - pip install -r requirements.txt
-    - pip install -r requirements-dev.txt
-  artifacts:
-    paths:
-      - .cache/pip/
-    expire_in: 1 hour
-
-# Java setup
-setup_java:
-  stage: setup
-  image: openjdk:${{JAVA_VERSION}}
-  script:
-    - java -version
-    - ./gradlew --version
-  artifacts:
-    paths:
-      - .gradle/caches/
-      - .gradle/wrapper/
-    expire_in: 1 hour
-  only:
-    changes:
-      - "**/*.java"
-      - "**/build.gradle"
-      - "**/pom.xml"
-
-# Code quality checks
-lint_python:
-  stage: quality
-  image: python:${{PYTHON_VERSION}}
-  dependencies:
-    - setup_python
-  script:
-    - flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
-    - flake8 src/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-  allow_failure: true
-
-type_check:
-  stage: quality
-  image: python:${{PYTHON_VERSION}}
-  dependencies:
-    - setup_python
-  script:
-    - mypy src/ --ignore-missing-imports
-  allow_failure: true
-
-# Security scanning
-security_scan:
-  stage: security
-  image: python:${{PYTHON_VERSION}}
-  dependencies:
-    - setup_python
-  script:
-    - bandit -r src/ -f json -o bandit-report.json
-    - safety check --json --output safety-report.json
-  artifacts:
-    reports:
-      junit: bandit-report.json
-    paths:
-      - bandit-report.json
-      - safety-report.json
-    expire_in: 1 week
-  allow_failure: true
-
-# Python tests
-test_python:
+# Python testing
+test:python:
   stage: test
   image: python:${{PYTHON_VERSION}}
-  dependencies:
-    - setup_python
+  before_script:
+    - python -m pip install --upgrade pip
+    - pip install -r requirements.txt
+    - pip install pytest pytest-cov pytest-xdist flake8 black isort
   script:
-    - pytest tests/ --cov=src --cov-report=xml --cov-report=html --junitxml=test-results.xml -v
-  coverage: '/TOTAL.*\\s+(\\d+%)$/'
+    - flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+    - black --check src/
+    - isort --check-only src/
+    - pytest tests/ -v --cov=src --cov-report=xml --cov-report=html --junitxml=test-results.xml
   artifacts:
     reports:
       junit: test-results.xml
@@ -118,115 +42,199 @@ test_python:
         coverage_format: cobertura
         path: coverage.xml
     paths:
-      - htmlcov/
       - coverage.xml
+      - htmlcov/
     expire_in: 1 week
+  coverage: '/TOTAL.*\\s+(\\d+%)$/'
+  only:
+    - merge_requests
+    - main
+    - develop"""
 
-# Java tests
-test_java:
+        # Add Java testing if project has Java
+        if project_info.get('has_java', False):
+            pipeline_content += self._add_java_job(project_info)
+        
+        # Add JavaScript testing if project has JavaScript
+        if project_info.get('has_javascript', False):
+            pipeline_content += self._add_javascript_job(project_info)
+        
+        # Add Docker job if project has Docker
+        if project_info.get('has_docker', False):
+            pipeline_content += self._add_docker_job(project_info)
+        
+        # Add security scanning
+        pipeline_content += self._add_security_jobs(project_info)
+        
+        # Add deployment
+        pipeline_content += self._add_deployment_jobs(project_info)
+
+        return CIConfig(
+            name=".gitlab-ci.yml",
+            content=pipeline_content,
+            file_path=".gitlab-ci.yml",
+            config_type="gitlab_ci"
+        )
+
+    def _add_java_job(self, project_info: Dict[str, Any]) -> str:
+        """Add Java testing job."""
+        return f"""
+
+# Java testing
+test:java:
   stage: test
-  image: openjdk:${{JAVA_VERSION}}
-  dependencies:
-    - setup_java
+  image: openjdk:{project_info.get('java_version', '11')}-jdk
+  before_script:
+    - chmod +x ./gradlew
   script:
+    - ./gradlew dependencies
+    - ./gradlew checkstyleMain checkstyleTest
     - ./gradlew test jacocoTestReport
   artifacts:
     reports:
-      junit: build/test-results/test/**/*.xml
+      junit: build/test-results/test/TEST-*.xml
+      coverage_report:
+        coverage_format: jacoco
+        path: build/reports/jacoco/test/jacocoTestReport.xml
     paths:
-      - build/reports/jacoco/test/html/
+      - build/reports/
     expire_in: 1 week
   only:
-    changes:
-      - "**/*.java"
-      - "**/build.gradle"
-      - "**/pom.xml"
+    - merge_requests
+    - main
+    - develop"""
 
-# Performance tests
-performance_test:
-  stage: performance
-  image: python:${{PYTHON_VERSION}}
-  dependencies:
-    - setup_python
+    def _add_javascript_job(self, project_info: Dict[str, Any]) -> str:
+        """Add JavaScript testing job."""
+        return f"""
+
+# JavaScript testing
+test:javascript:
+  stage: test
+  image: node:{project_info.get('node_version', '16')}
+  cache:
+    paths:
+      - node_modules/
+  before_script:
+    - npm ci
   script:
-    - pip install pytest-benchmark memory-profiler
-    - pytest tests/performance/ --benchmark-only --benchmark-json=benchmark-results.json
+    - npm run lint || echo "No lint script found"
+    - npm run format:check || echo "No format check script found"
+    - npm test
+    - npm run test:coverage || echo "No coverage script found"
   artifacts:
     paths:
-      - benchmark-results.json
+      - coverage/
     expire_in: 1 week
   only:
+    - merge_requests
+    - main
+    - develop"""
+
+    def _add_docker_job(self, project_info: Dict[str, Any]) -> str:
+        """Add Docker testing job."""
+        return f"""
+
+# Docker testing
+test:docker:
+  stage: test
+  image: docker:latest
+  services:
+    - docker:dind
+  before_script:
+    - docker info
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
+    - docker run --rm $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA python -m pytest tests/
+    - docker run --rm $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA python -c "import src; print('Import successful')"
+  only:
+    - merge_requests
+    - main
+    - develop"""
+
+    def _add_security_jobs(self, project_info: Dict[str, Any]) -> str:
+        """Add security scanning jobs."""
+        return f"""
+
+# Security scanning
+security:python:
+  stage: security
+  image: python:${{PYTHON_VERSION}}
+  before_script:
+    - pip install bandit safety
+  script:
+    - bandit -r src/ -f json -o bandit-report.json
+    - safety check --json --output safety-report.json
+  artifacts:
+    reports:
+      sast: bandit-report.json
+    paths:
+      - bandit-report.json
+      - safety-report.json
+    expire_in: 1 week
+  only:
+    - merge_requests
     - main
     - develop
-    - schedules
 
-# Integration tests
-integration_test:
-  stage: integration
-  image: python:${{PYTHON_VERSION}}
-  services:
-    - postgres:13
-    - redis:6
-  variables:
-    POSTGRES_DB: test_db
-    POSTGRES_USER: postgres
-    POSTGRES_PASSWORD: postgres
-    REDIS_URL: redis://redis:6379/0
+security:docker:
+  stage: security
+  image: aquasec/trivy:latest
   dependencies:
-    - setup_python
+    - test:docker
   script:
-    - pip install pytest-django
-    - pytest tests/integration/ --verbose
+    - trivy image --format template --template "@contrib/gitlab.tpl" -o gl-container-scanning-report.json $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+  artifacts:
+    reports:
+      container_scanning: gl-container-scanning-report.json
+  only:
+    - merge_requests
+    - main
+    - develop"""
+
+    def _add_deployment_jobs(self, project_info: Dict[str, Any]) -> str:
+        """Add deployment jobs."""
+        return f"""
+
+# Build stage
+build:docker:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
   only:
     - main
     - develop
 
-# Deploy to staging
-deploy_staging:
+# Deployment
+deploy:staging:
   stage: deploy
-  image: python:${{PYTHON_VERSION}}
-  dependencies:
-    - test_python
-    - security_scan
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache curl
   script:
     - echo "Deploying to staging environment..."
-    - echo "Deployment commands would go here"
+    - curl -X POST "$STAGING_DEPLOY_URL" -H "Authorization: Bearer $STAGING_TOKEN"
   environment:
     name: staging
     url: https://staging.example.com
   only:
     - develop
 
-# Deploy to production
-deploy_production:
+deploy:production:
   stage: deploy
-  image: python:${{PYTHON_VERSION}}
-  dependencies:
-    - test_python
-    - security_scan
-    - integration_test
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache curl
   script:
     - echo "Deploying to production environment..."
-    - echo "Deployment commands would go here"
+    - curl -X POST "$PRODUCTION_DEPLOY_URL" -H "Authorization: Bearer $PRODUCTION_TOKEN"
   environment:
     name: production
     url: https://example.com
-  only:
-    - main
   when: manual
-
-# Cleanup
-cleanup:
-  stage: deploy
-  image: alpine:latest
-  script:
-    - echo "Cleaning up temporary files..."
-  when: always
-"""
-        
-        return CIConfig(
-            name="GitLab CI Pipeline",
-            content=gitlab_ci_content,
-            file_path=".gitlab-ci.yml",
-            config_type="gitlab_ci"
-        )
+  only:
+    - main"""
