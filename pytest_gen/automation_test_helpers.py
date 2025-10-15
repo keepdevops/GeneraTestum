@@ -10,6 +10,10 @@ from .auto_coverage_analyzer import AutoCoverageAnalyzer
 from .auto_refactoring import AutoRefactoringAnalyzer
 from .auto_performance_testing import AutoPerformanceTesting
 from .integration_helper_fix import analyze_integration_requirements
+from .auto_security_testing import AutoSecurityTesting
+from .auto_documentation_generator import AutoDocumentationGenerator
+from .auto_cicd_generator import AutoCICDGenerator
+from .auto_test_optimizer import AutoTestOptimizer
 
 
 def run_automated_tests(test_path: str, with_coverage: bool, timeout: int, output: str):
@@ -175,3 +179,106 @@ def analyze_performance_requirements(source_file: str, output: str):
         click.echo(f"\n📄 Performance analysis saved to: {output}")
     
     return tests
+
+
+def analyze_security_requirements(source_file: str, output: str):
+    """Analyze source file and generate security tests."""
+    analyzer = AutoSecurityTesting()
+    
+    click.echo(f"🔒 Running automatic security test analysis...")
+    click.echo(f"Source file: {source_file}")
+    click.echo("")
+    
+    # Analyze and generate security tests
+    tests = analyzer.analyze_and_generate_tests(source_file)
+    
+    # Get vulnerabilities for reporting
+    vulnerabilities = analyzer.analyzer.analyze_file_security(source_file)
+    
+    # Generate report
+    report = analyzer.generate_security_report(tests, vulnerabilities)
+    click.echo(report)
+    
+    # Save detailed report if requested
+    if output:
+        with open(output, 'w') as f:
+            f.write(report)
+            if tests:
+                f.write("\n\n" + "=" * 60 + "\n")
+                f.write("GENERATED SECURITY TESTS\n")
+                f.write("=" * 60 + "\n")
+                for test in tests:
+                    f.write(f"\n# Security tests for {test.vulnerability_type}\n")
+                    f.write(test.test_code)
+        click.echo(f"\n📄 Security analysis saved to: {output}")
+    
+    return tests
+
+
+def generate_project_documentation(project_path: str, output_dir: str):
+    """Generate comprehensive project documentation."""
+    generator = AutoDocumentationGenerator()
+    
+    click.echo(f"📚 Running automatic documentation generation...")
+    click.echo(f"Project path: {project_path}")
+    click.echo(f"Output directory: {output_dir}")
+    click.echo("")
+    
+    # Generate documentation
+    docs = generator.generate_documentation(project_path, output_dir)
+    
+    # Generate report
+    report = generator.generate_documentation_report(docs)
+    click.echo(report)
+    
+    return docs
+
+
+def generate_cicd_pipelines(project_path: str, output_dir: str):
+    """Generate comprehensive CI/CD pipeline configurations."""
+    generator = AutoCICDGenerator()
+    
+    click.echo(f"🔧 Running automatic CI/CD pipeline generation...")
+    click.echo(f"Project path: {project_path}")
+    click.echo(f"Output directory: {output_dir}")
+    click.echo("")
+    
+    # Generate CI/CD configurations
+    configs = generator.generate_cicd_configs(project_path, output_dir)
+    
+    # Generate report
+    report = generator.generate_cicd_report(configs)
+    click.echo(report)
+    
+    return configs
+
+
+def analyze_test_optimization(test_directory: str, output: str):
+    """Analyze test suite and generate optimization suggestions."""
+    optimizer = AutoTestOptimizer()
+    
+    click.echo(f"⚡ Running automatic test suite optimization analysis...")
+    click.echo(f"Test directory: {test_directory}")
+    click.echo("")
+    
+    # Analyze test suite
+    report = optimizer.analyze_test_suite(test_directory)
+    
+    # Generate optimization report
+    optimization_report = optimizer.generate_optimization_report(report)
+    click.echo(optimization_report)
+    
+    # Generate optimized configuration
+    config = optimizer.generate_optimized_test_config(report)
+    
+    # Save detailed report if requested
+    if output:
+        with open(output, 'w') as f:
+            f.write(optimization_report)
+            f.write("\n\n" + "=" * 60 + "\n")
+            f.write("OPTIMIZED TEST CONFIGURATION\n")
+            f.write("=" * 60 + "\n")
+            f.write(config)
+        click.echo(f"\n📄 Optimization analysis saved to: {output}")
+    
+    return report

@@ -1,0 +1,232 @@
+"""
+GitLab CI pipeline generator.
+"""
+
+from typing import Dict, Any
+from .cicd_models import CIConfig
+
+
+class GitLabCIGenerator:
+    """Generates GitLab CI pipeline configurations."""
+
+    def generate_pipeline(self, project_info: Dict[str, Any]) -> CIConfig:
+        """Generate GitLab CI pipeline configuration."""
+        gitlab_ci_content = f"""stages:
+  - setup
+  - quality
+  - test
+  - security
+  - performance
+  - integration
+  - deploy
+
+variables:
+  PYTHON_VERSION: "{project_info.get('python_version', '3.9')}"
+  JAVA_VERSION: "{project_info.get('java_version', '11')}"
+  NODE_VERSION: "{project_info.get('node_version', '16')}"
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  paths:
+    - .cache/pip/
+    - .gradle/caches/
+    - .gradle/wrapper/
+
+# Python setup
+setup_python:
+  stage: setup
+  image: python:${{PYTHON_VERSION}}
+  script:
+    - python --version
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+    - pip install -r requirements-dev.txt
+  artifacts:
+    paths:
+      - .cache/pip/
+    expire_in: 1 hour
+
+# Java setup
+setup_java:
+  stage: setup
+  image: openjdk:${{JAVA_VERSION}}
+  script:
+    - java -version
+    - ./gradlew --version
+  artifacts:
+    paths:
+      - .gradle/caches/
+      - .gradle/wrapper/
+    expire_in: 1 hour
+  only:
+    changes:
+      - "**/*.java"
+      - "**/build.gradle"
+      - "**/pom.xml"
+
+# Code quality checks
+lint_python:
+  stage: quality
+  image: python:${{PYTHON_VERSION}}
+  dependencies:
+    - setup_python
+  script:
+    - flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+    - flake8 src/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+  allow_failure: true
+
+type_check:
+  stage: quality
+  image: python:${{PYTHON_VERSION}}
+  dependencies:
+    - setup_python
+  script:
+    - mypy src/ --ignore-missing-imports
+  allow_failure: true
+
+# Security scanning
+security_scan:
+  stage: security
+  image: python:${{PYTHON_VERSION}}
+  dependencies:
+    - setup_python
+  script:
+    - bandit -r src/ -f json -o bandit-report.json
+    - safety check --json --output safety-report.json
+  artifacts:
+    reports:
+      junit: bandit-report.json
+    paths:
+      - bandit-report.json
+      - safety-report.json
+    expire_in: 1 week
+  allow_failure: true
+
+# Python tests
+test_python:
+  stage: test
+  image: python:${{PYTHON_VERSION}}
+  dependencies:
+    - setup_python
+  script:
+    - pytest tests/ --cov=src --cov-report=xml --cov-report=html --junitxml=test-results.xml -v
+  coverage: '/TOTAL.*\\s+(\\d+%)$/'
+  artifacts:
+    reports:
+      junit: test-results.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    paths:
+      - htmlcov/
+      - coverage.xml
+    expire_in: 1 week
+
+# Java tests
+test_java:
+  stage: test
+  image: openjdk:${{JAVA_VERSION}}
+  dependencies:
+    - setup_java
+  script:
+    - ./gradlew test jacocoTestReport
+  artifacts:
+    reports:
+      junit: build/test-results/test/**/*.xml
+    paths:
+      - build/reports/jacoco/test/html/
+    expire_in: 1 week
+  only:
+    changes:
+      - "**/*.java"
+      - "**/build.gradle"
+      - "**/pom.xml"
+
+# Performance tests
+performance_test:
+  stage: performance
+  image: python:${{PYTHON_VERSION}}
+  dependencies:
+    - setup_python
+  script:
+    - pip install pytest-benchmark memory-profiler
+    - pytest tests/performance/ --benchmark-only --benchmark-json=benchmark-results.json
+  artifacts:
+    paths:
+      - benchmark-results.json
+    expire_in: 1 week
+  only:
+    - main
+    - develop
+    - schedules
+
+# Integration tests
+integration_test:
+  stage: integration
+  image: python:${{PYTHON_VERSION}}
+  services:
+    - postgres:13
+    - redis:6
+  variables:
+    POSTGRES_DB: test_db
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+    REDIS_URL: redis://redis:6379/0
+  dependencies:
+    - setup_python
+  script:
+    - pip install pytest-django
+    - pytest tests/integration/ --verbose
+  only:
+    - main
+    - develop
+
+# Deploy to staging
+deploy_staging:
+  stage: deploy
+  image: python:${{PYTHON_VERSION}}
+  dependencies:
+    - test_python
+    - security_scan
+  script:
+    - echo "Deploying to staging environment..."
+    - echo "Deployment commands would go here"
+  environment:
+    name: staging
+    url: https://staging.example.com
+  only:
+    - develop
+
+# Deploy to production
+deploy_production:
+  stage: deploy
+  image: python:${{PYTHON_VERSION}}
+  dependencies:
+    - test_python
+    - security_scan
+    - integration_test
+  script:
+    - echo "Deploying to production environment..."
+    - echo "Deployment commands would go here"
+  environment:
+    name: production
+    url: https://example.com
+  only:
+    - main
+  when: manual
+
+# Cleanup
+cleanup:
+  stage: deploy
+  image: alpine:latest
+  script:
+    - echo "Cleaning up temporary files..."
+  when: always
+"""
+        
+        return CIConfig(
+            name="GitLab CI Pipeline",
+            content=gitlab_ci_content,
+            file_path=".gitlab-ci.yml",
+            config_type="gitlab_ci"
+        )

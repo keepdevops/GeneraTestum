@@ -6,7 +6,8 @@ import click
 from .automation_helpers import (
     run_automated_tests, analyze_coverage_gaps, generate_smart_mocks,
     run_complete_analysis, analyze_refactoring_suggestions, analyze_performance_requirements,
-    analyze_integration_requirements
+    analyze_integration_requirements, analyze_security_requirements, generate_project_documentation,
+    generate_cicd_pipelines, analyze_test_optimization
 )
 
 
@@ -83,6 +84,38 @@ def performance(source_file: str, output: str):
 def integration(source_file: str, output: str):
     """Analyze API file and generate integration tests."""
     analyze_integration_requirements(source_file, output)
+
+
+@automation.command()
+@click.argument('source_file')
+@click.option('--output', '-o', help='Output file for security test analysis report')
+def security(source_file: str, output: str):
+    """Analyze source file and generate security tests."""
+    analyze_security_requirements(source_file, output)
+
+
+@automation.command()
+@click.argument('project_path')
+@click.option('--output-dir', '-o', default='docs', help='Output directory for documentation')
+def documentation(project_path: str, output_dir: str):
+    """Generate comprehensive project documentation."""
+    generate_project_documentation(project_path, output_dir)
+
+
+@automation.command()
+@click.argument('project_path')
+@click.option('--output-dir', '-o', default='.github/workflows', help='Output directory for CI/CD configurations')
+def cicd(project_path: str, output_dir: str):
+    """Generate CI/CD pipeline configurations."""
+    generate_cicd_pipelines(project_path, output_dir)
+
+
+@automation.command()
+@click.argument('test_directory')
+@click.option('--output', '-o', help='Output file for optimization analysis report')
+def optimize(test_directory: str, output: str):
+    """Analyze and optimize test suite performance."""
+    analyze_test_optimization(test_directory, output)
 
 
 @automation.command()
