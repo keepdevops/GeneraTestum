@@ -1,246 +1,59 @@
 """
-Jenkins pipeline generator.
+Jenkins pipeline generator - refactored for 200LOC limit.
 """
 
 from typing import Dict, Any
 from .cicd_models import CIConfig
+from .jenkins_stage_templates import JenkinsStageTemplates
+from .jenkins_pipeline_structure import JenkinsPipelineStructure
 
 
 class JenkinsGenerator:
     """Generates Jenkins pipeline configurations."""
 
+    def __init__(self):
+        self.stage_templates = JenkinsStageTemplates()
+        self.pipeline_structure = JenkinsPipelineStructure()
+
     def generate_jenkins_pipeline(self, project_info: Dict[str, Any]) -> CIConfig:
         """Generate Jenkins pipeline configuration."""
-        pipeline_content = f"""pipeline {{
-    agent any
-    
-    environment {{
-        PYTHON_VERSION = '{project_info.get('python_version', '3.9')}'
-        JAVA_VERSION = '{project_info.get('java_version', '11')}'
-        NODE_VERSION = '{project_info.get('node_version', '16')}'
-    }}
-    
-    stages {{
-        stage('Checkout') {{
-            steps {{
-                checkout scm
-            }}
-        }}
+        validated_info = self.pipeline_structure.validate_project_info(project_info)
         
-        stage('Setup') {{
-            parallel {{
-                stage('Python Setup') {{
-                    steps {{
-                        sh '''
-                            python -m pip install --upgrade pip
-                            pip install -r requirements.txt
-                            pip install pytest pytest-cov pytest-xdist
-                        '''
-                    }}
-                }}
-                stage('Java Setup') {{
-                    when {{
-                        expression {{ params.hasJava == true }}
-                    }}
-                    steps {{
-                        sh '''
-                            ./gradlew dependencies
-                        '''
-                    }}
-                }}
-                stage('Node Setup') {{
-                    when {{
-                        expression {{ params.hasJavaScript == true }}
-                    }}
-                    steps {{
-                        sh '''
-                            npm install
-                        '''
-                    }}
-                }}
-            }}
-        }}
+        # Build all stages
+        stages = []
         
-        stage('Lint') {{
-            parallel {{
-                stage('Python Lint') {{
-                    steps {{
-                        sh '''
-                            pip install flake8 black isort
-                            flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
-                            black --check src/
-                            isort --check-only src/
-                        '''
-                    }}
-                }}
-                stage('Java Lint') {{
-                    when {{
-                        expression {{ params.hasJava == true }}
-                    }}
-                    steps {{
-                        sh '''
-                            ./gradlew checkstyleMain checkstyleTest
-                        '''
-                    }}
-                }}
-                stage('JavaScript Lint') {{
-                    when {{
-                        expression {{ params.hasJavaScript == true }}
-                    }}
-                    steps {{
-                        sh '''
-                            npm run lint || echo "No lint script found"
-                        '''
-                    }}
-                }}
-            }}
-        }}
+        # Add checkout stage
+        stages.append(self.stage_templates.get_checkout_stage())
         
-        stage('Test') {{
-            parallel {{
-                stage('Python Tests') {{
-                    steps {{
-                        sh '''
-                            pytest tests/ -v --cov=src --cov-report=xml --cov-report=html --junitxml=test-results.xml
-                        '''
-                    }}
-                    post {{
-                        always {{
-                            publishTestResults testResultsPattern: 'test-results.xml'
-                            publishCoverage adapters: [coberturaAdapter('coverage.xml')], sourceFileResolver: sourceFiles('STORE_LAST_BUILD')
-                        }}
-                    }}
-                }}
-                stage('Java Tests') {{
-                    when {{
-                        expression {{ params.hasJava == true }}
-                    }}
-                    steps {{
-                        sh '''
-                            ./gradlew test jacocoTestReport
-                        '''
-                    }}
-                    post {{
-                        always {{
-                            publishTestResults testResultsPattern: 'build/test-results/test/TEST-*.xml'
-                            publishCoverage adapters: [jacocoAdapter('build/reports/jacoco/test/jacocoTestReport.xml')], sourceFileResolver: sourceFiles('STORE_LAST_BUILD')
-                        }}
-                    }}
-                }}
-                stage('JavaScript Tests') {{
-                    when {{
-                        expression {{ params.hasJavaScript == true }}
-                    }}
-                    steps {{
-                        sh '''
-                            npm test
-                            npm run test:coverage || echo "No coverage script found"
-                        '''
-                    }}
-                    post {{
-                        always {{
-                            publishTestResults testResultsPattern: 'test-results.xml'
-                        }}
-                    }}
-                }}
-            }}
-        }}
+        # Add setup stage
+        setup_stage = self.stage_templates.get_setup_stage(validated_info)
+        stages.append(setup_stage)
         
-        stage('Build') {{
-            parallel {{
-                stage('Python Build') {{
-                    steps {{
-                        sh '''
-                            python setup.py sdist bdist_wheel
-                        '''
-                    }}
-                }}
-                stage('Java Build') {{
-                    when {{
-                        expression {{ params.hasJava == true }}
-                    }}
-                    steps {{
-                        sh '''
-                            ./gradlew build
-                        '''
-                    }}
-                }}
-                stage('Docker Build') {{
-                    when {{
-                        expression {{ params.hasDocker == true }}
-                    }}
-                    steps {{
-                        sh '''
-                            docker build -t ${{BUILD_TAG}} .
-                        '''
-                    }}
-                }}
-            }}
-        }}
+        # Add lint stage
+        lint_stage = self.stage_templates.get_lint_stage(validated_info)
+        stages.append(lint_stage)
         
-        stage('Security Scan') {{
-            parallel {{
-                stage('Python Security') {{
-                    steps {{
-                        sh '''
-                            pip install bandit safety
-                            bandit -r src/
-                            safety check
-                        '''
-                    }}
-                }}
-                stage('Docker Security') {{
-                    when {{
-                        expression {{ params.hasDocker == true }}
-                    }}
-                    steps {{
-                        sh '''
-                            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \\
-                                aquasec/trivy image ${{BUILD_TAG}}
-                        '''
-                    }}
-                }}
-            }}
-        }}
+        # Add test stage
+        test_stage = self.stage_templates.get_test_stage(validated_info)
+        stages.append(test_stage)
         
-        stage('Deploy') {{
-            when {{
-                branch 'main'
-            }}
-            steps {{
-                script {{
-                    if (env.BRANCH_NAME == 'main') {{
-                        echo "Deploying to production..."
-                        // Add your deployment logic here
-                    }} else {{
-                        echo "Deploying to staging..."
-                        // Add your staging deployment logic here
-                    }}
-                }}
-            }}
-        }}
-    }}
-    
-    post {{
-        always {{
-            cleanWs()
-        }}
-        success {{
-            emailext (
-                subject: "Build Successful: ${{env.JOB_NAME}} - ${{env.BUILD_NUMBER}}",
-                body: "The build was successful. Please check the build details.",
-                to: "${{env.CHANGE_AUTHOR_EMAIL}}"
-            )
-        }}
-        failure {{
-            emailext (
-                subject: "Build Failed: ${{env.JOB_NAME}} - ${{env.BUILD_NUMBER}}",
-                body: "The build failed. Please check the build details.",
-                to: "${{env.CHANGE_AUTHOR_EMAIL}}"
-            )
-        }}
-    }}
-}}"""
+        # Add build stage
+        build_stage = self.stage_templates.get_build_stage(validated_info)
+        stages.append(build_stage)
+        
+        # Add security stage
+        security_stage = self.stage_templates.get_security_stage(validated_info)
+        stages.append(security_stage)
+        
+        # Add deploy stage
+        deploy_stage = self.stage_templates.get_deploy_stage()
+        stages.append(deploy_stage)
+        
+        # Combine all stages
+        stages_content = "\n\n".join(stages)
+        
+        # Generate complete pipeline
+        pipeline_content = self.pipeline_structure.get_parallel_pipeline(validated_info, stages_content)
 
         return CIConfig(
             name="Jenkinsfile",
@@ -248,3 +61,91 @@ class JenkinsGenerator:
             file_path="Jenkinsfile",
             config_type="jenkins"
         )
+
+    def generate_basic_pipeline(self, project_info: Dict[str, Any]) -> CIConfig:
+        """Generate a basic Jenkins pipeline."""
+        validated_info = self.pipeline_structure.validate_project_info(project_info)
+        pipeline_content = self.pipeline_structure.get_basic_pipeline(validated_info)
+        
+        return CIConfig(
+            name="Jenkinsfile",
+            content=pipeline_content,
+            file_path="Jenkinsfile",
+            config_type="jenkins"
+        )
+
+    def generate_minimal_pipeline(self) -> CIConfig:
+        """Generate a minimal Jenkins pipeline."""
+        pipeline_content = self.pipeline_structure.get_minimal_pipeline()
+        
+        return CIConfig(
+            name="Jenkinsfile",
+            content=pipeline_content,
+            file_path="Jenkinsfile",
+            config_type="jenkins"
+        )
+
+    def generate_custom_pipeline(self, project_info: Dict[str, Any], 
+                               stages: list) -> CIConfig:
+        """Generate custom Jenkins pipeline with specific stages."""
+        validated_info = self.pipeline_structure.validate_project_info(project_info)
+        pipeline_content = self.pipeline_structure.get_custom_pipeline(validated_info, stages)
+        
+        return CIConfig(
+            name="Jenkinsfile",
+            content=pipeline_content,
+            file_path="Jenkinsfile",
+            config_type="jenkins"
+        )
+
+    def generate_multi_language_pipeline(self, project_info: Dict[str, Any]) -> CIConfig:
+        """Generate multi-language Jenkins pipeline."""
+        validated_info = self.pipeline_structure.validate_project_info(project_info)
+        pipeline_content = self.pipeline_structure.get_multi_language_pipeline(validated_info)
+        
+        return CIConfig(
+            name="Jenkinsfile",
+            content=pipeline_content,
+            file_path="Jenkinsfile",
+            config_type="jenkins"
+        )
+
+    def get_supported_stages(self) -> list:
+        """Get list of supported pipeline stages."""
+        return ['checkout', 'setup', 'lint', 'test', 'build', 'security', 'deploy']
+
+    def get_supported_languages(self) -> list:
+        """Get list of supported programming languages."""
+        return ['python', 'java', 'javascript']
+
+    def generate_pipeline_for_language(self, project_info: Dict[str, Any], 
+                                     language: str) -> CIConfig:
+        """Generate pipeline optimized for specific language."""
+        validated_info = self.pipeline_structure.validate_project_info(project_info)
+        
+        if language.lower() == 'python':
+            return self.generate_basic_pipeline(validated_info)
+        elif language.lower() == 'java':
+            validated_info['has_java'] = True
+            return self.generate_custom_pipeline(validated_info, ['checkout', 'setup', 'test', 'build'])
+        elif language.lower() == 'javascript':
+            validated_info['has_javascript'] = True
+            return self.generate_custom_pipeline(validated_info, ['checkout', 'setup', 'test', 'build'])
+        else:
+            # Multi-language project
+            return self.generate_jenkins_pipeline(validated_info)
+
+    def generate_pipeline_with_docker(self, project_info: Dict[str, Any]) -> CIConfig:
+        """Generate Jenkins pipeline with Docker support."""
+        validated_info = self.pipeline_structure.validate_project_info(project_info)
+        validated_info['has_docker'] = True
+        
+        return self.generate_jenkins_pipeline(validated_info)
+
+    def generate_security_focused_pipeline(self, project_info: Dict[str, Any]) -> CIConfig:
+        """Generate Jenkins pipeline with enhanced security scanning."""
+        validated_info = self.pipeline_structure.validate_project_info(project_info)
+        
+        # Custom stages with enhanced security
+        stages = ['checkout', 'setup', 'security', 'test', 'build']
+        return self.generate_custom_pipeline(validated_info, stages)
